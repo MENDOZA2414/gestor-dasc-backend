@@ -14,6 +14,7 @@ const entidadReceptoraRoutes = require('./routes/entidadReceptoraRoutes');
 const practicasProfesionalesRoutes = require('./routes/practicasProfesionalesRoutes');
 const postulacionAlumnoRoutes = require('./routes/postulacionAlumnoRoutes');
 const vacantePracticaRoutes = require('./routes/vacantePracticaRoutes');
+const documentoAlumnoRoutes = require('./routes/documentoAlumnoRoutes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/entidadReceptora', entidadReceptoraRoutes);
 app.use('/practicasProfesionales', practicasProfesionalesRoutes);
 app.use('/postulaciones', postulacionAlumnoRoutes);
 app.use('/vacantesPractica', vacantePracticaRoutes);
+app.use('/documentoAlumno', documentoAlumnoRoutes);
 
 // Manejo de errores
 app.use((req, res, next) => {
