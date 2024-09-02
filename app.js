@@ -7,8 +7,10 @@ var logger = require('morgan');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
-// Aquí importamos las rutas de alumnos
+// Rutas 
 var alumnoRoutes = require('./routes/alumnoRoutes');
+var asesorInternoRoutes = require('./routes/asesorInternoRoutes');
+var asesorExternoRoutes = require('./routes/asesorExternoRoutes');
 
 var app = express();
 
@@ -25,8 +27,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
-// Rutas de alumnos
+// Uso de Rutas
 app.use('/alumnos', alumnoRoutes);
+app.use('/asesoresInternos', asesorInternoRoutes);
+app.use('/asesorExterno', asesorExternoRoutes);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
