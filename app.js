@@ -12,6 +12,8 @@ const asesorInternoRoutes = require('./routes/asesorInternoRoutes');
 const asesorExternoRoutes = require('./routes/asesorExternoRoutes');
 const entidadReceptoraRoutes = require('./routes/entidadReceptoraRoutes');
 const practicasProfesionalesRoutes = require('./routes/practicasProfesionalesRoutes');
+const postulacionAlumnoRoutes = require('./routes/postulacionAlumnoRoutes');
+const vacantePracticaRoutes = require('./routes/vacantePracticaRoutes');
 
 const app = express();
 
@@ -33,6 +35,8 @@ app.use('/asesoresInternos', asesorInternoRoutes);
 app.use('/asesorExterno', asesorExternoRoutes);
 app.use('/entidadReceptora', entidadReceptoraRoutes);
 app.use('/practicasProfesionales', practicasProfesionalesRoutes);
+app.use('/postulaciones', postulacionAlumnoRoutes);
+app.use('/vacantesPractica', vacantePracticaRoutes);
 
 // Manejo de errores
 app.use((req, res, next) => {
