@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const asesorExternoController = require('../controllers/asesorExternoController');
+const { obtenerAsesorExternoPorID, registrarAsesorExternoController } = require('../controllers/asesorExternoController');
 
 // Ruta para obtener un asesor externo por ID
-router.get('/:id', asesorExternoController.obtenerAsesorExternoPorID);
+router.get('/:id', obtenerAsesorExternoPorID);
 
-// Ruta para el inicio de sesión de asesor externo
-router.post('/login', asesorExternoController.iniciarSesionAsesorExterno);
+// Ruta para registrar un asesor externo
+router.post('/registro', registrarAsesorExternoController);
 
 module.exports = router;
