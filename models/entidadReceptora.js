@@ -1,4 +1,40 @@
 const pool = require('../config/db');
+const { registrarUsuario } = require('./users');
+
+// Registrar una entidad receptora
+const registrarEntidadReceptora = async (entidadData) => {
+    const connection = await pool.getConnection();  // Obtener la conexión
+    try {
+        // Iniciar la transacción
+        await connection.beginTransaction();
+
+        const { correo, contraseña, numCelular, rfc, razonSocial, nombreEntidad, calle, numeroExterior, numeroInterior, colonia, ciudad, estado, codigoPostal, telefonoEmpresa, categoria, giroID, paginaWeb, estatus, fotoPerfil } = entidadData;
+
+        // Registrar el usuario primero en la tabla 'usuarios'
+        const usuarioID = await registrarUsuario(connection, correo, contraseña, numCelular, 3); // Aquí 3 sería el rolID para una entidad receptora
+
+        // Insertar en la tabla 'entidadReceptora'
+        const query = `
+            INSERT INTO entidadReceptora (
+                usuarioID, rfc, razonSocial, nombreEntidad, calle, numeroExterior, numeroInterior, colonia, ciudad, estado, codigoPostal, telefonoEmpresa, categoria, giroID, paginaWeb, estatus, fotoPerfil
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        await connection.query(query, [
+            usuarioID, rfc, razonSocial, nombreEntidad, calle, numeroExterior, numeroInterior, colonia, ciudad, estado, codigoPostal, telefonoEmpresa, categoria, giroID, paginaWeb, estatus, fotoPerfil
+        ]);
+
+        // Confirmar la transacción
+        await connection.commit();
+        return { message: 'Entidad receptora registrada exitosamente' };
+
+    } catch (error) {
+        // Revertir la transacción si hay un error
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();  // Liberar la conexión
+    }
+};
 
 const obtenerEntidadReceptoraPorID = async (entidadID) => {
     const query = 'SELECT * FROM entidadReceptora WHERE entidadID = ?';
@@ -48,20 +84,6 @@ const obtenerEntidadesPorEstatus = async (estatus) => {
     return resultados;
 };
 
-const iniciarSesionEntidad = async (email, password) => {
-    const query = `SELECT * FROM entidadReceptora WHERE correo = ? AND contraseña = md5(?)`;
-    const [resultados] = await pool.query(query, [email, password]);
-    if (resultados.length > 0) {
-        const entidad = resultados[0];
-        if (entidad.fotoPerfil) {
-            entidad.fotoPerfil = entidad.fotoPerfil.toString('base64');
-        }
-        return entidad;
-    } else {
-        throw new Error('Correo o contraseña incorrectos');
-    }
-};
-
 const eliminarEntidadReceptora = async (entidadID) => {
     const checkStatusQuery = 'SELECT estatus FROM entidadReceptora WHERE entidadID = ?';
     const deleteQuery = 'DELETE FROM entidadReceptora WHERE entidadID = ?';
@@ -77,9 +99,9 @@ const eliminarEntidadReceptora = async (entidadID) => {
 };
 
 module.exports = {
+    registrarEntidadReceptora,
     obtenerEntidadReceptoraPorID,
     obtenerTodasLasEntidades,
     obtenerEntidadesPorEstatus,
-    iniciarSesionEntidad,
     eliminarEntidadReceptora
 };

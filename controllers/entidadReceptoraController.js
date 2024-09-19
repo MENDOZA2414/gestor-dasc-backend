@@ -1,7 +1,7 @@
 const EntidadReceptora = require('../models/entidadReceptora');
 
 // Obtener una entidad receptora por ID
-exports.obtenerEntidadReceptoraPorID = async (req, res) => {
+const obtenerEntidadReceptoraPorID = async (req, res) => {
     try {
         const entidadID = req.params.id;
         const entidad = await EntidadReceptora.obtenerEntidadReceptoraPorID(entidadID);
@@ -13,7 +13,7 @@ exports.obtenerEntidadReceptoraPorID = async (req, res) => {
 };
 
 // Obtener todas las entidades receptoras
-exports.obtenerTodasLasEntidades = async (req, res) => {
+const obtenerTodasLasEntidades = async (req, res) => {
     try {
         const entidades = await EntidadReceptora.obtenerTodasLasEntidades();
         res.status(200).json(entidades);
@@ -24,7 +24,7 @@ exports.obtenerTodasLasEntidades = async (req, res) => {
 };
 
 // Obtener entidades por estatus
-exports.obtenerEntidadesPorEstatus = async (req, res) => {
+const obtenerEntidadesPorEstatus = async (req, res) => {
     try {
         const { estatus } = req.query;
         const entidades = await EntidadReceptora.obtenerEntidadesPorEstatus(estatus);
@@ -35,20 +35,20 @@ exports.obtenerEntidadesPorEstatus = async (req, res) => {
     }
 };
 
-// Inicio de sesión para una entidad receptora
-exports.iniciarSesionEntidad = async (req, res) => {
+// Registrar una entidad receptora
+const registrarEntidadReceptora = async (req, res) => {
     try {
-        const { email, password } = req.body;
-        const entidad = await EntidadReceptora.iniciarSesionEntidad(email, password);
-        res.status(200).json(entidad);
+        const entidadData = req.body;
+        const resultado = await EntidadReceptora.registrarEntidadReceptora(entidadData);
+        res.status(201).json(resultado);
     } catch (error) {
-        console.error('Error al iniciar sesión:', error.message);
-        res.status(500).json({ message: 'Error al iniciar sesión' });
+        console.error('Error al registrar la entidad receptora:', error.message);
+        res.status(500).json({ message: 'Error al registrar la entidad receptora', error: error.message });
     }
 };
 
 // Eliminar una entidad receptora por ID
-exports.eliminarEntidadReceptora = async (req, res) => {
+const eliminarEntidadReceptora = async (req, res) => {
     try {
         const entidadID = req.params.entidadID;
         const resultado = await EntidadReceptora.eliminarEntidadReceptora(entidadID);
@@ -57,4 +57,12 @@ exports.eliminarEntidadReceptora = async (req, res) => {
         console.error('Error al eliminar la entidad receptora:', error.message);
         res.status(500).json({ message: 'Error al eliminar la entidad receptora' });
     }
+};
+
+module.exports = {
+    obtenerEntidadReceptoraPorID,
+    obtenerTodasLasEntidades,
+    obtenerEntidadesPorEstatus,
+    registrarEntidadReceptora,
+    eliminarEntidadReceptora
 };
