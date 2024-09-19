@@ -1,7 +1,20 @@
 const Alumno = require('../models/alumno');
+const { registrarAlumno } = require('../models/alumno');
 
-// Obtener un alumno por número de control
-exports.obtenerAlumnoPorNumControl = async (req, res) => {
+// Controlador para registrar un alumno
+const registrarAlumnoController = async (req, res) => {
+    try {
+        const alumnoData = req.body;
+        const result = await registrarAlumno(alumnoData);
+        res.status(201).send(result);
+    } catch (error) {
+        console.error('Error al registrar el alumno:', error.message);
+        res.status(500).send({ message: 'Error al registrar el alumno', error: error.message });
+    }
+};
+
+// Obtener un alumno por numControl
+const obtenerAlumnoPorNumControl = async (req, res) => {
     try {
         const numControl = req.params.numControl;
         const alumno = await Alumno.obtenerAlumnoPorNumControl(numControl);
@@ -12,8 +25,8 @@ exports.obtenerAlumnoPorNumControl = async (req, res) => {
     }
 };
 
-// Obtener imagen de perfil por número de control
-exports.obtenerImagenPerfilPorNumControl = async (req, res) => {
+// Obtener imagen de perfil por numControl
+const obtenerImagenPerfilPorNumControl = async (req, res) => {
     try {
         const numControl = req.params.numControl;
         const imagenPerfil = await Alumno.obtenerImagenPerfilPorNumControl(numControl);
@@ -25,7 +38,7 @@ exports.obtenerImagenPerfilPorNumControl = async (req, res) => {
 };
 
 // Obtener alumnos por ID de asesor
-exports.obtenerAlumnosPorAsesorID = async (req, res) => {
+const obtenerAlumnosPorAsesorID = async (req, res) => {
     try {
         const asesorID = req.params.asesorID;
         const alumnos = await Alumno.obtenerAlumnosPorAsesorID(asesorID);
@@ -37,7 +50,7 @@ exports.obtenerAlumnosPorAsesorID = async (req, res) => {
 };
 
 // Obtener todos los alumnos por ID de asesor interno
-exports.obtenerTodosLosAlumnos = async (req, res) => {
+const obtenerTodosLosAlumnos = async (req, res) => {
     try {
         const asesorInternoID = req.query.asesorInternoID;
         const alumnos = await Alumno.obtenerTodosLosAlumnos(asesorInternoID);
@@ -49,7 +62,7 @@ exports.obtenerTodosLosAlumnos = async (req, res) => {
 };
 
 // Obtener alumnos por estatus y ID de asesor interno
-exports.obtenerAlumnosPorEstatusYAsesorID = async (req, res) => {
+const obtenerAlumnosPorEstatusYAsesorID = async (req, res) => {
     try {
         const { estatus, asesorInternoID } = req.query;
         const alumnos = await Alumno.obtenerAlumnosPorEstatusYAsesorID(estatus, asesorInternoID);
@@ -60,8 +73,8 @@ exports.obtenerAlumnosPorEstatusYAsesorID = async (req, res) => {
     }
 };
 
-// Eliminar un alumno por número de control
-exports.eliminarPorNumControl = async (req, res) => {
+// Eliminar un alumno por numControl
+const eliminarPorNumControl = async (req, res) => {
     try {
         const numControl = req.params.numControl;
         const resultado = await Alumno.eliminarPorNumControl(numControl);
@@ -70,4 +83,15 @@ exports.eliminarPorNumControl = async (req, res) => {
         console.error('Error al eliminar el alumno:', error.message);
         res.status(500).json({ message: 'Error al eliminar el alumno' });
     }
+};
+
+// Exportar todas las funciones
+module.exports = {
+    registrarAlumnoController,
+    obtenerAlumnoPorNumControl,
+    obtenerImagenPerfilPorNumControl,
+    obtenerAlumnosPorAsesorID,
+    obtenerTodosLosAlumnos,
+    obtenerAlumnosPorEstatusYAsesorID,
+    eliminarPorNumControl
 };

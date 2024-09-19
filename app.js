@@ -5,8 +5,8 @@ const logger = require('morgan');
 const createError = require('http-errors');
 
 // Importación de rutas
+const usersRoutes = require('./routes/usersRoutes');
 const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
 const alumnoRoutes = require('./routes/alumnoRoutes');
 const asesorInternoRoutes = require('./routes/asesorInternoRoutes');
 const asesorExternoRoutes = require('./routes/asesorExternoRoutes');
@@ -28,9 +28,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Rutas para usuarios
+app.use('/usuarios', usersRoutes);
+
 // Uso de rutas
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
 app.use('/alumnos', alumnoRoutes);
 app.use('/asesoresInternos', asesorInternoRoutes);
 app.use('/asesorExterno', asesorExternoRoutes);
