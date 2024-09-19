@@ -34,7 +34,7 @@ app.use('/usuarios', usersRoutes);
 // Uso de rutas
 app.use('/', indexRouter);
 app.use('/alumnos', alumnoRoutes);
-app.use('/asesoresInternos', asesorInternoRoutes);
+app.use('/asesorInterno', asesorInternoRoutes);
 app.use('/asesorExterno', asesorExternoRoutes);
 app.use('/entidadReceptora', entidadReceptoraRoutes);
 app.use('/practicasProfesionales', practicasProfesionalesRoutes);
