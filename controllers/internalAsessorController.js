@@ -1,10 +1,10 @@
-const AsesorInterno = require('../models/asesorInterno');
+const InternalAssessor = require('../models/InternalAssessor');
 
 // Registrar un asesor interno
-const registrarAsesorInternoController = async (req, res) => {
+const registerInternalAssessorController = async (req, res) => {
     try {
-        const asesorData = req.body;
-        const result = await AsesorInterno.registrarAsesorInterno(asesorData);
+        const assessorData = req.body;
+        const result = await InternalAssessor.registerInternalAssessor(assessorData);
         res.status(201).send(result);
     } catch (error) {
         console.error('Error al registrar el asesor interno:', error.message);
@@ -13,11 +13,11 @@ const registrarAsesorInternoController = async (req, res) => {
 };
 
 // Obtener un asesor interno por ID
-const obtenerAsesorInternoPorID = async (req, res) => {
+const getInternalAssessorByID = async (req, res) => {
     try {
-        const asesorInternoID = req.params.id;
-        const asesor = await AsesorInterno.obtenerAsesorInternoPorID(asesorInternoID);
-        res.status(200).json(asesor);
+        const internalAssessorID = req.params.id;
+        const assessor = await InternalAssessor.getInternalAssessorByID(internalAssessorID);
+        res.status(200).json(assessor);
     } catch (error) {
         console.error('Error al obtener el asesor interno:', error.message);
         res.status(500).json({ message: 'Error al obtener el asesor interno' });
@@ -25,10 +25,10 @@ const obtenerAsesorInternoPorID = async (req, res) => {
 };
 
 // Obtener todos los asesores internos
-const obtenerTodosLosAsesoresInternos = async (req, res) => {
+const getAllInternalAssessors = async (req, res) => {
     try {
-        const asesores = await AsesorInterno.obtenerTodosLosAsesoresInternos();
-        res.status(200).json(asesores);
+        const assessors = await InternalAssessor.getAllInternalAssessors();
+        res.status(200).json(assessors);
     } catch (error) {
         console.error('Error al obtener los asesores internos:', error.message);
         res.status(500).json({ message: 'Error al obtener los asesores internos' });
@@ -36,9 +36,9 @@ const obtenerTodosLosAsesoresInternos = async (req, res) => {
 };
 
 // Contar asesores internos (prueba de conexión)
-const contarAsesoresInternos = async (req, res) => {
+const countInternalAssessors = async (req, res) => {
     try {
-        const count = await AsesorInterno.contarAsesoresInternos();
+        const count = await InternalAssessor.countInternalAssessors();
         res.status(200).json({ message: 'Consulta exitosa', count });
     } catch (error) {
         console.error('Error en la consulta de prueba:', error.message);
@@ -47,8 +47,8 @@ const contarAsesoresInternos = async (req, res) => {
 };
 
 module.exports = {
-    registrarAsesorInternoController,
-    obtenerAsesorInternoPorID,
-    obtenerTodosLosAsesoresInternos,
-    contarAsesoresInternos
+    registerInternalAssessorController,
+    getInternalAssessorByID,
+    getAllInternalAssessors,
+    countInternalAssessors
 };
