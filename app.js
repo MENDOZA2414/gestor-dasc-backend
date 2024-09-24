@@ -5,7 +5,7 @@ const logger = require('morgan');
 const createError = require('http-errors');
 
 // Importación de rutas
-const usersRoutes = require('./routes/usersRoutes');
+const usersRoutes = require('./routes/userRoutes');
 const indexRouter = require('./routes/index');
 const alumnoRoutes = require('./routes/alumnoRoutes');
 const asesorInternoRoutes = require('./routes/asesorInternoRoutes');
