@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { registerUser } = require('./users');
+const { registerUser } = require('./user');
 
 // Registrar un alumno
 const registerStudent = async (studentData) => {
