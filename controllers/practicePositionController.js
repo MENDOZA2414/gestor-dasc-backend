@@ -1,53 +1,53 @@
-const VacantePractica = require('../models/vacantePractica');
+const PracticePosition = require('../models/practicePosition');
 
-exports.obtenerVacantePorID = async (req, res) => {
+exports.getPositionByID = async (req, res) => {
     try {
-        const vacante = await VacantePractica.obtenerVacantePorID(req.params.id);
-        res.status(200).json(vacante);
+        const position = await PracticePosition.getPositionByID(req.params.id);
+        res.status(200).json(position);
     } catch (error) {
         console.error('Error en el servidor:', error.message);
         res.status(500).send({ message: 'Error en el servidor' });
     }
 };
 
-exports.obtenerVacantesPorEntidadID = async (req, res) => {
+exports.getPositionsByCompanyID = async (req, res) => {
     try {
-        const vacantes = await VacantePractica.obtenerVacantesPorEntidadID(req.params.entidadID);
-        res.status(200).json(vacantes);
+        const positions = await PracticePosition.getPositionsByCompanyID(req.params.companyID);
+        res.status(200).json(positions);
     } catch (error) {
         console.error('Error en el servidor:', error.message);
         res.status(500).send({ message: 'Error en el servidor' });
     }
 };
 
-exports.obtenerTodasLasVacantes = async (req, res) => {
+exports.getAllPositions = async (req, res) => {
     try {
         const { page, limit } = req.params;
-        const vacantes = await VacantePractica.obtenerTodasLasVacantes(parseInt(page), parseInt(limit));
-        res.status(200).json(vacantes);
+        const positions = await PracticePosition.getAllPositions(parseInt(page), parseInt(limit));
+        res.status(200).json(positions);
     } catch (error) {
         console.error('Error en el servidor:', error.message);
         res.status(500).send({ message: 'Error en el servidor' });
     }
 };
 
-exports.obtenerVacantesPorEstatus = async (req, res) => {
+exports.getPositionsByStatus = async (req, res) => {
     try {
-        const vacantes = await VacantePractica.obtenerVacantesPorEstatus(req.query.estatus);
-        res.status(200).json(vacantes);
+        const positions = await PracticePosition.getPositionsByStatus(req.query.status);
+        res.status(200).json(positions);
     } catch (error) {
         console.error('Error en el servidor:', error.message);
         res.status(500).send({ message: 'Error en el servidor' });
     }
 };
 
-exports.crearVacante = async (req, res) => {
+exports.createPosition = async (req, res) => {
     try {
-        const vacante = await VacantePractica.crearVacante(req.body);
+        const position = await PracticePosition.createPosition(req.body);
         res.status(201).json({
             status: 201,
             message: 'Vacante creada con éxito',
-            data: vacante
+            data: position
         });
     } catch (error) {
         console.error('Error al crear la vacante:', error.message);
@@ -55,20 +55,20 @@ exports.crearVacante = async (req, res) => {
     }
 };
 
-exports.eliminarVacante = async (req, res) => {
+exports.deletePosition = async (req, res) => {
     try {
-        const resultado = await VacantePractica.eliminarVacante(req.params.vacantePracticaID);
-        res.status(200).json(resultado);
+        const result = await PracticePosition.deletePosition(req.params.practicePositionID);
+        res.status(200).json(result);
     } catch (error) {
         console.error('Error en el servidor:', error.message);
         res.status(500).send({ message: 'Error en el servidor' });
     }
 };
 
-exports.eliminarVacanteYPostulaciones = async (req, res) => {
+exports.deletePositionAndApplications = async (req, res) => {
     try {
-        const resultado = await VacantePractica.eliminarVacanteYPostulaciones(req.params.id);
-        res.status(200).json(resultado);
+        const result = await PracticePosition.deletePositionAndApplications(req.params.id);
+        res.status(200).json(result);
     } catch (error) {
         console.error('Error al eliminar la vacante y sus postulaciones:', error.message);
         res.status(500).send({ message: 'Error al eliminar la vacante y sus postulaciones: ' + error.message });

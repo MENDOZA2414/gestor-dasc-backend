@@ -4,17 +4,16 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const createError = require('http-errors');
 
-// Importación de rutas
+// Importación de rutas actualizadas
 const usersRoutes = require('./routes/userRoutes');
 const indexRouter = require('./routes/index');
-const alumnoRoutes = require('./routes/alumnoRoutes');
-const asesorInternoRoutes = require('./routes/asesorInternoRoutes');
-const asesorExternoRoutes = require('./routes/asesorExternoRoutes');
-const entidadReceptoraRoutes = require('./routes/entidadReceptoraRoutes');
-const practicasProfesionalesRoutes = require('./routes/practicasProfesionalesRoutes');
-const postulacionAlumnoRoutes = require('./routes/postulacionAlumnoRoutes');
-const vacantePracticaRoutes = require('./routes/vacantePracticaRoutes');
-const documentoAlumnoRoutes = require('./routes/documentoAlumnoRoutes');
+const studentRoutes = require('./routes/studentRoutes');  
+const internalAssessorRoutes = require('./routes/internalAssessorRoutes');  
+const externalAssessorRoutes = require('./routes/externalAssessorRoutes');  
+const companyRoutes = require('./routes/companyRoutes');  
+const studentApplicationRoutes = require('./routes/studentApplicationRoutes');  
+const practicePositionRoutes = require('./routes/practicePositionRoutes');  
+const studentDocumentRoutes = require('./routes/studentDocumentRoutes');  
 
 const app = express();
 
@@ -29,18 +28,17 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas para usuarios
-app.use('/usuarios', usersRoutes);
+app.use('/user', userRoutes);
 
-// Uso de rutas
+// Uso de rutas actualizadas
 app.use('/', indexRouter);
-app.use('/alumnos', alumnoRoutes);
-app.use('/asesorInterno', asesorInternoRoutes);
-app.use('/asesorExterno', asesorExternoRoutes);
-app.use('/entidadReceptora', entidadReceptoraRoutes);
-app.use('/practicasProfesionales', practicasProfesionalesRoutes);
-app.use('/postulaciones', postulacionAlumnoRoutes);
-app.use('/vacantesPractica', vacantePracticaRoutes);
-app.use('/documentoAlumno', documentoAlumnoRoutes);
+app.use('/students', studentRoutes);  // Rutas para alumnos
+app.use('/internalAssessors', internalAssessorRoutes);  // Rutas para asesores internos
+app.use('/externalAssessors', externalAssessorRoutes);  // Rutas para asesores externos
+app.use('/companies', companyRoutes);  // Rutas para entidades receptoras
+app.use('/applications', studentApplicationRoutes);  // Rutas para postulaciones
+app.use('/practicePositions', practicePositionRoutes);  // Rutas para vacantes
+app.use('/studentDocuments', studentDocumentRoutes);  // Rutas para documentos de alumnos
 
 // Manejo de errores
 app.use((req, res, next) => {
