@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { registerUser } = require('./users');
+const { registerUser } = require('./User');
 
 // Registrar un asesor externo
 const registerExternalAssessor = async (assessorData) => {

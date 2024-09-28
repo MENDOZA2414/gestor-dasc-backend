@@ -5,7 +5,7 @@ const logger = require('morgan');
 const createError = require('http-errors');
 
 // Importación de rutas actualizadas
-const usersRoutes = require('./routes/userRoutes');
+const userRoutes = require('./routes/userRoutes');
 const indexRouter = require('./routes/index');
 const studentRoutes = require('./routes/studentRoutes');  
 const internalAssessorRoutes = require('./routes/internalAssessorRoutes');  
@@ -13,7 +13,7 @@ const externalAssessorRoutes = require('./routes/externalAssessorRoutes');
 const companyRoutes = require('./routes/companyRoutes');  
 const studentApplicationRoutes = require('./routes/studentApplicationRoutes');  
 const practicePositionRoutes = require('./routes/practicePositionRoutes');  
-const studentDocumentRoutes = require('./routes/studentDocumentRoutes');  
+const studentDocumentationRoutes = require('./routes/studentDocumentationRoutes');  
 
 const app = express();
 
@@ -38,7 +38,7 @@ app.use('/externalAssessors', externalAssessorRoutes);  // Rutas para asesores e
 app.use('/companies', companyRoutes);  // Rutas para entidades receptoras
 app.use('/applications', studentApplicationRoutes);  // Rutas para postulaciones
 app.use('/practicePositions', practicePositionRoutes);  // Rutas para vacantes
-app.use('/studentDocuments', studentDocumentRoutes);  // Rutas para documentos de alumnos
+app.use('/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
 
 // Manejo de errores
 app.use((req, res, next) => {

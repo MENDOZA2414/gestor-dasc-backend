@@ -1,4 +1,4 @@
-const InternalAssessor = require('../models/InternalAssessor');
+const InternalAssessor = require('../models/internalAssessor');
 
 // Registrar un asesor interno
 const registerInternalAssessorController = async (req, res) => {

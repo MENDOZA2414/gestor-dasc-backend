@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { registerUser } = require('./users');
+const { registerUser } = require('./User');
 
 // Register a company (Receiving Entity)
 const registerCompany = async (companyData) => {
