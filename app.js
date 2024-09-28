@@ -18,14 +18,13 @@ const studentDocumentationRoutes = require('./routes/studentDocumentationRoutes'
 const app = express();
 
 // Configuración de la vista
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+//app.set('views', path.join(__dirname, 'views'));
+//app.set('view engine', 'jade');
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas para usuarios
 app.use('/user', userRoutes);
@@ -49,7 +48,7 @@ app.use((err, req, res, next) => {
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   res.status(err.status || 500);
-  res.render('error');
+  res.json({ message: err.message, error: err });
 });
 
 module.exports = app;
