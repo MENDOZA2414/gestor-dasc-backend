@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const createError = require('http-errors');
 
-// Importación de rutas actualizadas
+// Importación de rutas
 const userRoutes = require('./routes/userRoutes');
 const indexRouter = require('./routes/index');
 const studentRoutes = require('./routes/studentRoutes');  
@@ -17,9 +17,8 @@ const studentDocumentationRoutes = require('./routes/studentDocumentationRoutes'
 
 const app = express();
 
-// Configuración de la vista
-//app.set('views', path.join(__dirname, 'views'));
-//app.set('view engine', 'jade');
+// Configuración de la vista y contenido estático
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -38,6 +37,14 @@ app.use('/companies', companyRoutes);  // Rutas para entidades receptoras
 app.use('/applications', studentApplicationRoutes);  // Rutas para postulaciones
 app.use('/practicePositions', practicePositionRoutes);  // Rutas para vacantes
 app.use('/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
+
+// Ruta para servir el archivo HTML desde la carpeta public
+app.get('/', (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'index.html');
+  console.log('Sirviendo archivo:', filePath); // Esto imprimirá la ruta que se está utilizando
+  res.sendFile(filePath);
+});
+
 
 // Manejo de errores
 app.use((req, res, next) => {
