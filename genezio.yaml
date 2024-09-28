@@ -1,0 +1,7 @@
+backend:
+    path: ./src
+    build: npm install
+    start: npm start
+name: gestor-dasc-backend
+region: us-east-1
+yamlVersion: 2
