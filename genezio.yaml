@@ -4,6 +4,7 @@ frontend:
     scripts:
         build: npm run build
         deploy: npm install
+    subdomain: gestor-dasc-backend
 name: gestor-dasc-backend
 region: us-east-1
 yamlVersion: 2
