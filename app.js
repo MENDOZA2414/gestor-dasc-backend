@@ -5,15 +5,15 @@ const logger = require('morgan');
 const createError = require('http-errors');
 
 // Importación de rutas
-const userRoutes = require('./routes/userRoutes');
+const userRoutes = require('./routes/UserRoutes');
 const indexRouter = require('./routes/index');
-const studentRoutes = require('./routes/studentRoutes');  
-const internalAssessorRoutes = require('./routes/internalAssessorRoutes');  
-const externalAssessorRoutes = require('./routes/externalAssessorRoutes');  
-const companyRoutes = require('./routes/companyRoutes');  
-const studentApplicationRoutes = require('./routes/studentApplicationRoutes');  
-const practicePositionRoutes = require('./routes/practicePositionRoutes');  
-const studentDocumentationRoutes = require('./routes/studentDocumentationRoutes');  
+const studentRoutes = require('./routes/StudentRoutes');  
+const internalAssessorRoutes = require('./routes/InternalAssessorRoutes');  
+const externalAssessorRoutes = require('./routes/ExternalAssessorRoutes');  
+const companyRoutes = require('./routes/CompanyRoutes');  
+const studentApplicationRoutes = require('./routes/StudentApplicationRoutes');  
+const practicePositionRoutes = require('./routes/PracticePositionRoutes');  
+const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes');  
 
 const app = express();
 
