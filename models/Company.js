@@ -1,42 +1,42 @@
 const pool = require('../config/db');
 const { registerUser } = require('./User');
 
-// Register a company (Receiving Entity)
+// Registrar una entidad receptora (Compañía)
 const registerCompany = async (companyData) => {
-    const connection = await pool.getConnection();  // Get the connection
+    const connection = await pool.getConnection();  // Obtener la conexión
     try {
-        // Start the transaction
+        // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, rfc, fiscalName, companyName, street, externalNumber, internalNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, status, photo } = companyData;
+        const { email, password, phone, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo } = companyData;
 
-        // First, register the user in the 'User' table
-        const userID = await registerUser(connection, email, password, phone, 3); // Here 3 would be the roleID for a receiving entity
+        // Registrar primero el usuario en la tabla 'User'
+        const userID = await registerUser(connection, email, password, phone, 3); // Aquí 3 sería el roleID para una entidad receptora
 
-        // Insert into the 'Company' table
+        // Insertar en la tabla 'Company'
         const query = `
             INSERT INTO Company (
-                userID, rfc, fiscalName, companyName, street, externalNumber, internalNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, status, photo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         await connection.query(query, [
-            userID, rfc, fiscalName, companyName, street, externalNumber, internalNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, status, photo
+            userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo
         ]);
 
-        // Confirm the transaction
+        // Confirmar la transacción
         await connection.commit();
-        return { message: 'Receiving Entity successfully registered' };
+        return { message: 'Entidad receptora registrada exitosamente' };
 
     } catch (error) {
-        // Roll back the transaction in case of error
+        // Revertir la transacción en caso de error
         await connection.rollback();
         throw error;
     } finally {
-        connection.release();  // Release the connection
+        connection.release();  // Liberar la conexión
     }
 };
 
-// Get a receiving entity by ID
+// Obtener una entidad receptora por ID
 const getCompanyByID = async (companyID) => {
     const query = 'SELECT * FROM Company WHERE companyID = ?';
     const [results] = await pool.query(query, [companyID]);
@@ -47,11 +47,11 @@ const getCompanyByID = async (companyID) => {
         }
         return company;
     } else {
-        throw new Error('Receiving entity does not exist');
+        throw new Error('La entidad receptora no existe');
     }
 };
 
-// Get all receiving entities
+// Obtener todas las entidades receptoras
 const getAllCompanies = async () => {
     const query = `
         SELECT companyID, companyName AS name, photo AS companyLogo 
@@ -69,7 +69,7 @@ const getAllCompanies = async () => {
     return results;
 };
 
-// Get receiving entities by status
+// Obtener entidades receptoras por estado
 const getCompaniesByStatus = async (status) => {
     let query = 'SELECT companyID, status, companyName AS name, photo AS companyLogo FROM Company WHERE 1=1';
     const params = [];
@@ -87,18 +87,18 @@ const getCompaniesByStatus = async (status) => {
     return results;
 };
 
-// Delete a receiving entity by ID
+// Eliminar una entidad receptora por ID
 const deleteCompany = async (companyID) => {
-    const checkStatusQuery = 'SELECT status FROM Company WHERE companyID = ?';
+    const checkStatusQuery = 'SELECT companyStatus FROM Company WHERE companyID = ?';
     const deleteQuery = 'DELETE FROM Company WHERE companyID = ?';
 
     const [result] = await pool.query(checkStatusQuery, [companyID]);
 
-    if (result.length > 0 && result[0].status === 'Accepted') {
+    if (result.length > 0 && result[0].companyStatus === 'Activo') {
         await pool.query(deleteQuery, [companyID]);
-        return { message: 'Company successfully deleted' };
+        return { message: 'Compañía eliminada exitosamente' };
     } else {
-        throw new Error('Only accepted entities can be deleted');
+        throw new Error('Solo se pueden eliminar entidades activas');
     }
 };
 

@@ -8,17 +8,19 @@ const registerStudent = async (studentData) => {
         // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, controlNumber } = studentData;
+        const { email, password, phone, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, controlNumber, studentStatus, status, internalAssessorID, photo } = studentData;
 
         // Registrar el usuario primero en la tabla 'User' usando la conexión
         const userID = await registerUser(connection, email, password, phone, 3); // 3 sería el roleID para alumno
 
         // Insertar en la tabla 'Student'
         const query = `
-            INSERT INTO Student (controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO Student (controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift]);
+        await connection.query(query, [
+            controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo
+        ]);
 
         // Si todo está bien, confirmar la transacción
         await connection.commit();

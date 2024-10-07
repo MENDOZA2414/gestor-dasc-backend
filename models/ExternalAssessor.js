@@ -8,17 +8,17 @@ const registerExternalAssessor = async (assessorData) => {
         // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName, companyID, professionID, position, phoneNumber } = assessorData;
+        const { email, password, phone, firstName, firstLastName, secondLastName, companyID, professionID, position} = assessorData;
 
         // Registrar el usuario primero en la tabla 'User'
         const userID = await registerUser(connection, email, password, phone, 2); // 2 sería el roleID para external assessor
 
         // Insertar en la tabla 'ExternalAssessor'
         const query = `
-            INSERT INTO ExternalAssessor (userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phoneNumber)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ExternalAssessor (userID, companyID, firstName, firstLastName, secondLastName, professionID, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phoneNumber]);
+        await connection.query(query, [userID, companyID, firstName, firstLastName, secondLastName, professionID, position]);
 
         // Confirmar la transacción
         await connection.commit();
