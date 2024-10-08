@@ -2,6 +2,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const createError = require('http-errors');
+const cors = require('cors');  // Importar CORS
 
 // Importación de rutas
 const userRoutes = require('./routes/UserRoutes');
@@ -14,6 +15,9 @@ const practicePositionRoutes = require('./routes/PracticePositionRoutes');
 const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes');  
 
 const app = express();
+
+// Usar CORS como middleware global
+app.use(cors());
 
 // Middlewares
 app.use(logger('dev'));
