@@ -29,7 +29,11 @@ const loginUserController = async (req, res) => {
         res.cookie('token', token, { httpOnly: true, secure: true }); // Para cookies
         res.setHeader('Authorization', `Bearer ${token}`); // Para headers
 
-        res.status(200).send({ message: 'Login exitoso', token }); // Enviamos el token al cliente
+        res.status(200).send({ 
+            message: 'Login exitoso', 
+            token,
+            userTypeID: user.userTypeID 
+        }); // Enviamos el token al cliente
     } catch (error) {
         res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
     }
