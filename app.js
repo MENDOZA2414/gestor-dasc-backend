@@ -16,14 +16,27 @@ const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes'
 
 const app = express();
 
+const allowedOrigins = [
+  'https://gestor-dasc-frontend.vercel.app', // Origen de producción
+  'http://localhost:5173' // Origen local para desarrollo
+];
+
 const corsOptions = {
-  origin: 'https://gestor-dasc-frontend.vercel.app/', // Cambia esto a la URL de tu frontend en producción
+  origin: (origin, callback) => {
+    // Permitir solicitudes sin origen (por ejemplo, Postman) o que coincidan con los permitidos
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No autorizado por CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true // Habilitar el envío de cookies y credenciales en las solicitudes
 };
 
 // Usar CORS como middleware global con las opciones configuradas
 app.use(cors(corsOptions));
+
 
 // Middlewares
 app.use(logger('dev'));
