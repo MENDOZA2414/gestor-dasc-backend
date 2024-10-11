@@ -26,6 +26,8 @@ const loginUserController = async (req, res) => {
             process.env.JWT_SECRET, // Secreto desde las variables de entorno
             { expiresIn: '1h' } // Expiración del token
         );
+        res.cookie('token', token, { httpOnly: true, secure: true }); // Para cookies
+        res.setHeader('Authorization', `Bearer ${token}`); // Para headers
 
         res.status(200).send({ message: 'Login exitoso', token }); // Enviamos el token al cliente
     } catch (error) {

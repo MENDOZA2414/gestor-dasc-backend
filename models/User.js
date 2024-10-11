@@ -27,10 +27,10 @@ const authenticateUser = async (email, password) => {
         if (isPasswordValid) {
             return user; // Retorna los datos del usuario autenticado
         } else {
-            throw new Error('Contraseña incorrecta');
+            throw new Error('Credenciales incorrecta');
         }
     } else {
-        throw new Error('Correo no encontrado');
+        throw new Error('Credenciales no encontrado');
     }
 };
 

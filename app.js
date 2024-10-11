@@ -16,14 +16,21 @@ const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes'
 
 const app = express();
 
-// Usar CORS como middleware global
-app.use(cors());
+const corsOptions = {
+  origin: 'https://gestor-dasc-frontend.vercel.app/', // Cambia esto a la URL de tu frontend en producción
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true // Habilitar el envío de cookies y credenciales en las solicitudes
+};
+
+// Usar CORS como middleware global con las opciones configuradas
+app.use(cors(corsOptions));
 
 // Middlewares
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
 
 // Ruta raíz simple para verificar que el servidor está en funcionamiento
 app.get('/', (req, res) => {
