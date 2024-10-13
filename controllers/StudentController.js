@@ -9,21 +9,35 @@ const registerStudentController = async (req, res) => {
         res.status(201).send(result);
     } catch (error) {
         console.error('Error al registrar el alumno:', error.message);
+
+        // Verificar si es un error de validación y devolver un 400 Bad Request
+        if (error.message.includes('El número de control') || 
+            error.message.includes('El email ya está registrado') ||
+            error.message.includes('El número de teléfono')) {
+            return res.status(400).send({ message: error.message });
+        }
+
+        // Si es un error interno
         res.status(500).send({ message: 'Error al registrar el alumno', error: error.message });
     }
 };
+
 
 // Obtener un alumno por controlNumber
 const getStudentByControlNumber = async (req, res) => {
     try {
         const controlNumber = req.params.controlNumber;
         const student = await Student.getStudentByControlNumber(controlNumber);
+        if (!student) {
+            return res.status(404).json({ message: 'Alumno no encontrado' });
+        }
         res.status(200).json(student);
     } catch (error) {
         console.error('Error al obtener el alumno:', error.message);
         res.status(500).json({ message: 'Error al obtener el alumno' });
     }
 };
+
 
 // Obtener alumnos por ID de asesor
 const getStudentsByInternalAssessorID = async (req, res) => {

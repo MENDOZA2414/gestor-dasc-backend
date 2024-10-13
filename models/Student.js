@@ -8,10 +8,73 @@ const registerStudent = async (studentData) => {
         // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, controlNumber, studentStatus, status, internalAssessorID, photo } = studentData;
+        const {
+            email,
+            password,
+            phone,
+            firstName,
+            firstLastName,
+            secondLastName,
+            dateOfBirth,
+            career,
+            semester,
+            shift,
+            controlNumber,
+            studentStatus,
+            status,
+            internalAssessorID,
+            photo
+        } = studentData;
+
+        // Verificar si el número de control ya existe
+        const checkControlNumberQuery = 'SELECT * FROM Student WHERE controlNumber = ?';
+        const [existingStudent] = await connection.query(checkControlNumberQuery, [controlNumber]);
+        if (existingStudent.length > 0) {
+            throw new Error('El número de control ya está registrado');
+        }
+
+        // Validar formato del número de control (solo números y longitud específica)
+        if (!/^\d+$/.test(controlNumber) || controlNumber.length !== 8) {
+            throw new Error('El número de control debe ser un número de 8 dígitos');
+        }
+
+        // Validar que el primer nombre no esté vacío
+        if (!firstName || firstName.trim() === '') {
+            throw new Error('El nombre no puede estar vacío');
+        }
+
+        // Validar longitud de los apellidos
+        if (!firstLastName || firstLastName.trim() === '' || firstLastName.length > 50) {
+            throw new Error('El apellido paterno es obligatorio y no puede exceder los 50 caracteres');
+        }
+
+        if (!secondLastName || secondLastName.trim() === '' || secondLastName.length > 50) {
+            throw new Error('El apellido materno es obligatorio y no puede exceder los 50 caracteres');
+        }
+
+        // Validar formato de fecha de nacimiento
+        const birthDate = new Date(dateOfBirth);
+        if (isNaN(birthDate.getTime())) {
+            throw new Error('Formato de fecha de nacimiento inválido');
+        }
+
+        // Validar carrera, semestre y turno
+        const validCareers = ['IDS', 'ITC', 'IC', 'LATI', 'LITI'];
+        if (!validCareers.includes(career)) {
+            throw new Error('Carrera no válida');
+        }
+
+        if (isNaN(semester) || semester < 0 || semester > 9) {
+            throw new Error('El semestre debe ser un número entre 0 y 9');
+        }
+
+        const validShifts = ['TM', 'TV'];
+        if (!validShifts.includes(shift)) {
+            throw new Error('Turno no válido');
+        }
 
         // Registrar el usuario primero en la tabla 'User' usando la conexión
-        const userID = await registerUser(connection, email, password, phone, 3); // 3 sería el roleID para alumno
+        const userID = await registerUser(connection, email, password, phone, 3); 
 
         // Insertar en la tabla 'Student'
         const query = `
