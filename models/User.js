@@ -51,11 +51,6 @@ const authenticateUser = async (email, password) => {
 
     const user = result[0];
 
-    // (Opcional) Verificar si el usuario está activo
-    if (user.status !== 'activo') {
-        throw new Error('La cuenta está inactiva o bloqueada');
-    }
-
     // Comparar la contraseña con el hash almacenado
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
