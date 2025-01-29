@@ -1,105 +1,99 @@
+// Modelo para gestionar las entidades receptoras (Company) en la base de datos.
+
 const pool = require('../config/db');
 const { registerUser } = require('./User');
 
-// Registrar una entidad receptora (Compañía)
+// Registra una nueva entidad receptora en la base de datos.
 const registerCompany = async (companyData) => {
-    const connection = await pool.getConnection();  // Obtener la conexión
+    const connection = await pool.getConnection();
     try {
-        // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo } = companyData;
+        const {
+            email, password, phone, rfc, fiscalName, companyName, address, externalNumber,
+            interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID,
+            website, companyStatus, status, photo
+        } = companyData;
 
-        // Registrar primero el usuario en la tabla 'User'
-        const userID = await registerUser(connection, email, password, phone, 3); // Aquí 3 sería el roleID para una entidad receptora
+        // Validar datos básicos necesarios.
+        if (!rfc || !fiscalName || !companyName) {
+            throw new Error('RFC, nombre fiscal y nombre de la empresa son obligatorios');
+        }
 
-        // Insertar en la tabla 'Company'
+        // Crear usuario para la compañía.
+        const userID = await registerUser(connection, email, password, phone, 3);
+
+        // Insertar la compañía en la base de datos.
         const query = `
             INSERT INTO Company (
-                userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo
+                userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
+                suburb, city, state, zipCode, companyPhone, category, areaID, website,
+                companyStatus, status, photo
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         await connection.query(query, [
-            userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID, website, companyStatus, status, photo
+            userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
+            suburb, city, state, zipCode, companyPhone, category, areaID, website,
+            companyStatus, status, photo
         ]);
 
-        // Confirmar la transacción
         await connection.commit();
         return { message: 'Entidad receptora registrada exitosamente' };
-
     } catch (error) {
-        // Revertir la transacción en caso de error
         await connection.rollback();
         throw error;
     } finally {
-        connection.release();  // Liberar la conexión
+        connection.release();
     }
 };
 
-// Obtener una entidad receptora por ID
+// Busca una entidad receptora por su ID.
 const getCompanyByID = async (companyID) => {
     const query = 'SELECT * FROM Company WHERE companyID = ?';
     const [results] = await pool.query(query, [companyID]);
-    if (results.length > 0) {
-        const company = results[0];
-        if (company.photo) {
-            company.photo = company.photo.toString('base64');
-        }
-        return company;
-    } else {
+
+    if (results.length === 0) {
         throw new Error('La entidad receptora no existe');
     }
+    return results[0];
 };
 
-// Obtener todas las entidades receptoras
+// Devuelve todas las entidades receptoras registradas.
 const getAllCompanies = async () => {
     const query = `
-        SELECT companyID, companyName AS name, photo AS companyLogo 
+        SELECT companyID, companyName, photo 
         FROM Company
-        ORDER BY companyName`;
-
+        ORDER BY companyName
+    `;
     const [results] = await pool.query(query);
-
-    results.forEach(row => {
-        if (row.companyLogo) {
-            row.companyLogo = `data:image/jpeg;base64,${Buffer.from(row.companyLogo).toString('base64')}`;
-        }
-    });
-
     return results;
 };
 
-// Obtener entidades receptoras por estado
+// Devuelve las entidades receptoras filtradas por estado.
 const getCompaniesByStatus = async (status) => {
-    let query = 'SELECT companyID, status, companyName AS name, photo AS companyLogo FROM Company WHERE 1=1';
-    const params = [];
-
-    if (status) {
-        query += ' AND status = ?';
-        params.push(status);
-    } else {
-        query += ' AND (status IS NULL OR status = "")';
-    }
-
-    query += ' ORDER BY companyName';
-
-    const [results] = await pool.query(query, params);
+    const query = `
+        SELECT companyID, status, companyName, photo 
+        FROM Company 
+        WHERE status = ? OR (status IS NULL OR status = "")
+        ORDER BY companyName
+    `;
+    const [results] = await pool.query(query, [status]);
     return results;
 };
 
-// Eliminar una entidad receptora por ID
+// Elimina una entidad receptora según su ID.
 const deleteCompany = async (companyID) => {
     const checkStatusQuery = 'SELECT companyStatus FROM Company WHERE companyID = ?';
     const deleteQuery = 'DELETE FROM Company WHERE companyID = ?';
 
     const [result] = await pool.query(checkStatusQuery, [companyID]);
 
-    if (result.length > 0 && result[0].companyStatus === 'Activo') {
-        await pool.query(deleteQuery, [companyID]);
-        return { message: 'Compañía eliminada exitosamente' };
-    } else {
+    if (result.length === 0 || result[0].companyStatus !== 'Activo') {
         throw new Error('Solo se pueden eliminar entidades activas');
     }
+
+    await pool.query(deleteQuery, [companyID]);
+    return { message: 'Entidad receptora eliminada exitosamente' };
 };
 
 module.exports = {

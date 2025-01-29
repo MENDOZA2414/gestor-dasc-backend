@@ -1,20 +1,22 @@
+// Rutas para gestionar las entidades receptoras (Company).
+
 const express = require('express');
 const router = express.Router();
 const companyController = require('../controllers/CompanyController');
 
-// Ruta para obtener todas las entidades receptoras
+// Obtener todas las entidades receptoras.
 router.get('/all', companyController.getAllCompanies);
 
-// Ruta para obtener una entidad receptora por ID
-router.get('/:id', companyController.getCompanyByID);
-
-// Ruta para obtener entidades receptoras por estatus
+// Obtener entidades receptoras filtradas por estatus.
 router.get('/', companyController.getCompaniesByStatus);
 
-// Ruta para registrar una entidad receptora
+// Obtener una entidad receptora por ID.
+router.get('/:id', companyController.getCompanyByID);
+
+// Registrar una nueva entidad receptora.
 router.post('/register', companyController.registerCompany);
 
-// Ruta para eliminar una entidad receptora por ID
+// Eliminar una entidad receptora por ID.
 router.delete('/:companyID', companyController.deleteCompany);
 
 module.exports = router;
