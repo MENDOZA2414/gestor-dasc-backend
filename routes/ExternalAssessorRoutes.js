@@ -1,3 +1,5 @@
+// Rutas para gestionar asesores externos.
+
 const express = require('express');
 const router = express.Router();
 const externalAssessorController = require('../controllers/ExternalAssessorController');
