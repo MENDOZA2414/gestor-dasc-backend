@@ -55,13 +55,18 @@ const getStudentsByInternalAssessorID = async (req, res) => {
 const getAllStudents = async (req, res) => {
     try {
         const internalAssessorID = req.query.internalAssessorID;
+        if (!internalAssessorID) {
+            return res.status(400).json({ message: "El ID del asesor interno es obligatorio" });
+        }
+
         const students = await Student.getAllStudents(internalAssessorID);
         res.status(200).json(students);
     } catch (error) {
         console.error('Error al obtener todos los alumnos:', error.message);
-        res.status(500).json({ message: 'Error al obtener todos los alumnos' });
+        res.status(500).json({ message: 'Error al obtener el alumno' });
     }
 };
+
 
 // Contar alumnos en el sistema
 const countStudents = async (req, res) => {
