@@ -2,9 +2,6 @@ const express = require('express');
 const router = express.Router();
 const practicePositionController = require('../controllers/PracticePositionController');
 
-// Ruta para obtener una vacante de práctica por ID
-router.get('/:id', practicePositionController.getPositionByID);
-
 // Ruta para obtener las vacantes de práctica por ID de entidad
 router.get('/entidad/:entidadID', practicePositionController.getPositionsByCompanyID);
 
@@ -14,8 +11,11 @@ router.get('/all/:page/:limit', practicePositionController.getAllPositions);
 // Obtener vacantes por estatus
 router.get('/', practicePositionController.getPositionsByStatus);
 
+// Ruta para obtener una vacante de práctica por ID
+router.get('/:id', practicePositionController.getPositionByID);
+
 // Ruta para crear una nueva vacante de práctica
-router.post('/', practicePositionController.createPosition);
+router.post('/create', practicePositionController.createPosition);
 
 // Eliminar vacante
 router.delete('/:practicePositionID', practicePositionController.deletePosition);

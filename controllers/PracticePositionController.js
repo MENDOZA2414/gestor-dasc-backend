@@ -12,13 +12,18 @@ exports.getPositionByID = async (req, res) => {
 
 exports.getPositionsByCompanyID = async (req, res) => {
     try {
-        const positions = await PracticePosition.getPositionsByCompanyID(req.params.companyID);
+        const { entidadID } = req.params;
+        const positions = await PracticePosition.getPositionsByCompanyID(entidadID);
+        if (!positions.length) {
+            return res.status(404).json({ message: 'No hay vacantes asociadas a esta entidad.' });
+        }
         res.status(200).json(positions);
     } catch (error) {
-        console.error('Error en el servidor:', error.message);
-        res.status(500).send({ message: 'Error en el servidor' });
+        console.error('Error al obtener vacantes por entidad:', error.message);
+        res.status(500).json({ message: 'Error en el servidor' });
     }
 };
+
 
 exports.getAllPositions = async (req, res) => {
     try {

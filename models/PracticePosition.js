@@ -95,13 +95,13 @@ const getPositionsByStatus = async (status) => {
 };
 
 const createPosition = async (positionData) => {
-    const { title, startDate, endDate, city, positionType, description, companyID, externalAssessorID } = positionData;
+    const { positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID } = positionData;
 
     const insertQuery = `
-        INSERT INTO PracticePosition (title, startDate, endDate, city, positionType, description, companyID, externalAssessorID)
+        INSERT INTO PracticePosition (positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const [result] = await pool.query(insertQuery, [title, startDate, endDate, city, positionType, description, companyID, externalAssessorID]);
+    const [result] = await pool.query(insertQuery, [positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID]);
 
     const selectQuery = `SELECT * FROM PracticePosition WHERE practicePositionID = ?`;
     const [result2] = await pool.query(selectQuery, [result.insertId]);
@@ -121,6 +121,7 @@ const deletePosition = async (practicePositionID) => {
         throw new Error('Solo se pueden eliminar elementos aceptados');
     }
 };
+// TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
 
 const deletePositionAndApplications = async (positionID) => {
     const connection = await pool.getConnection();
