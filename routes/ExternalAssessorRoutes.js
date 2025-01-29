@@ -1,11 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { getExternalAssessorByID, registerExternalAssessorController } = require('../controllers/ExternalAssessorController');
+const externalAssessorController = require('../controllers/ExternalAssessorController');
 
-// Ruta para obtener un asesor externo por ID
-router.get('/:id', getExternalAssessorByID);
+// Registrar un asesor externo
+router.post('/register', externalAssessorController.registerExternalAssessorController);
 
-// Ruta para registrar un asesor externo
-router.post('/register', registerExternalAssessorController);
+// Obtener todos los asesores externos
+router.get('/all', externalAssessorController.getAllExternalAssessorsController);
+
+// Obtener un asesor externo por ID
+router.get('/:id', externalAssessorController.getExternalAssessorByIDController);
+
+// Obtener asesores externos por empresa
+router.get('/company/:companyID', externalAssessorController.getExternalAssessorsByCompanyIDController);
+
+// Actualizar un asesor externo
+router.put('/:externalAssessorID', externalAssessorController.updateExternalAssessorController);
+
+// Eliminar un asesor externo
+router.delete('/:externalAssessorID', externalAssessorController.deleteExternalAssessorController);
 
 module.exports = router;

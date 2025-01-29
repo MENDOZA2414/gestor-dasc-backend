@@ -3,33 +3,31 @@ const { registerUser } = require('./User');
 
 // Registrar un asesor externo
 const registerExternalAssessor = async (assessorData) => {
-    const connection = await pool.getConnection();  // Obtener la conexión
+    const connection = await pool.getConnection();
     try {
-        // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName, companyID, professionID, position} = assessorData;
+        const { email, password, phone, firstName, firstLastName, secondLastName, companyID, professionID, position } = assessorData;
 
-        // Registrar el usuario primero en la tabla 'User'
-        const userID = await registerUser(connection, email, password, phone, 2); // 2 sería el roleID para external assessor
+        // Registrar el usuario en la tabla 'User'
+        const userID = await registerUser(connection, email, password, phone, 2); // 2 para external assessor
 
         // Insertar en la tabla 'ExternalAssessor'
         const query = `
-            INSERT INTO ExternalAssessor (userID, companyID, firstName, firstLastName, secondLastName, professionID, position)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ExternalAssessor (
+                userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phone
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [userID, companyID, firstName, firstLastName, secondLastName, professionID, position]);
-
-        // Confirmar la transacción
+        await connection.query(query, [userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phone]);
+        
         await connection.commit();
         return { message: 'Asesor Externo registrado exitosamente' };
 
     } catch (error) {
-        // Revertir la transacción si hay un error
         await connection.rollback();
         throw error;
     } finally {
-        connection.release();  // Liberar la conexión
+        connection.release();
     }
 };
 
@@ -38,17 +36,68 @@ const getExternalAssessorByID = async (externalAssessorID) => {
     const query = 'SELECT * FROM ExternalAssessor WHERE externalAssessorID = ?';
     const [results] = await pool.query(query, [externalAssessorID]);
     if (results.length > 0) {
-        const assessor = results[0];
-        if (assessor.photo) {
-            assessor.photo = assessor.photo.toString('base64');
-        }
-        return assessor;
+        return results[0];
     } else {
         throw new Error('No existe el asesor externo');
     }
 };
 
+// Obtener todos los asesores externos
+const getAllExternalAssessors = async () => {
+    const query = `
+        SELECT externalAssessorID, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS fullName, companyID, position
+        FROM ExternalAssessor
+        ORDER BY firstName
+    `;
+    const [results] = await pool.query(query);
+    return results;
+};
+
+// Obtener asesores externos por empresa
+const getExternalAssessorsByCompanyID = async (companyID) => {
+    const query = `
+        SELECT externalAssessorID, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS fullName, position
+        FROM ExternalAssessor
+        WHERE companyID = ?
+        ORDER BY firstName
+    `;
+    const [results] = await pool.query(query, [companyID]);
+    return results;
+};
+
+// Actualizar un asesor externo
+const updateExternalAssessor = async (externalAssessorID, updateData) => {
+    const { firstName, firstLastName, secondLastName, professionID, position } = updateData;
+
+    const query = `
+        UPDATE ExternalAssessor
+        SET firstName = ?, firstLastName = ?, secondLastName = ?, professionID = ?, position = ?
+        WHERE externalAssessorID = ?
+    `;
+    const [result] = await pool.query(query, [firstName, firstLastName, secondLastName, professionID, position, externalAssessorID]);
+
+    if (result.affectedRows === 0) {
+        throw new Error('No se pudo actualizar el asesor externo o no existe');
+    }
+    return { message: 'Asesor externo actualizado exitosamente' };
+};
+
+// Eliminar un asesor externo
+const deleteExternalAssessor = async (externalAssessorID) => {
+    const query = 'DELETE FROM ExternalAssessor WHERE externalAssessorID = ?';
+    const [result] = await pool.query(query, [externalAssessorID]);
+
+    if (result.affectedRows === 0) {
+        throw new Error('No se pudo eliminar el asesor externo o no existe');
+    }
+    return { message: 'Asesor externo eliminado exitosamente' };
+};
+
 module.exports = {
     registerExternalAssessor,
-    getExternalAssessorByID
+    getExternalAssessorByID,
+    getAllExternalAssessors,
+    getExternalAssessorsByCompanyID,
+    updateExternalAssessor,
+    deleteExternalAssessor
 };
