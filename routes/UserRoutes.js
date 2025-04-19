@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUserController, loginUserController } = require('../controllers/UserController');
+const { registerUserController, loginUserController, logoutUserController } = require('../controllers/UserController');
 const authMiddleware = require('../middleware/AuthMiddleware');
 
 // Ruta para registrar un nuevo usuario (pública)
