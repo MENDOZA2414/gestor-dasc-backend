@@ -14,36 +14,43 @@ const registerUserController = async (req, res) => {
 };
 
  // Controlador para iniciar sesión
-const loginUserController = async (req, res) => {
-    const { email, password } = req.body;
+ const loginUserController = async (req, res) => {
+    const { email, password, rememberMe } = req.body;
 
     try {
         const user = await authenticateUser(email, password);
-
-        // Generar el token JWT
         const token = jwt.sign(
-            { 
-                id: user.userID, 
-                email: user.email, 
-                roleID: user.roleID, 
-                userTypeID: user.userTypeID // Incluir userTypeID en el token
-            }, 
-            process.env.JWT_SECRET, 
-            { expiresIn: '1h' }
+            {
+                id: user.userID,
+                email: user.email,
+                roleID: user.roleID,
+                userTypeID: user.userTypeID
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: rememberMe ? '7d' : '1h' }
         );
-        res.cookie('token', token, { httpOnly: true, secure: true }); // Para cookies
-        res.setHeader('Authorization', `Bearer ${token}`); // Para headers
 
-        // Retornar el token y el userTypeID al cliente
-        res.status(200).send({ 
-            message: 'Login exitoso', 
-            token,
-            userTypeID: user.userTypeID // Enviar el userTypeID al cliente
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: rememberMe ? 7 * 24 * 60 * 60 * 1000 : undefined // 7 días o solo sesión
+        });
+
+        res.status(200).send({
+            message: 'Login exitoso',
+            userTypeID: user.userTypeID
         });
     } catch (error) {
         res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
     }
 };
 
+ // Controlador para cerrar sesión
+const logoutUserController = (req, res) => {
+    res.clearCookie('token');
+    res.status(200).send({ message: 'Sesión cerrada correctamente' });
+};
 
-module.exports = { registerUserController, loginUserController };
+
+module.exports = { registerUserController, loginUserController, logoutUserController };

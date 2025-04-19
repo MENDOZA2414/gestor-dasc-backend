@@ -9,6 +9,9 @@ router.post('/register', registerUserController);
 // Ruta para iniciar sesión (pública)
 router.post('/login', loginUserController);
 
+// Ruta para cerrar sesión (pública)
+router.get('/logout', logoutUserController);
+
 // Ejemplo de ruta protegida (necesita token)
 router.get('/protected', authMiddleware, (req, res) => {
     res.send({ message: 'Acceso autorizado, usuario autenticado', user: req.user });
