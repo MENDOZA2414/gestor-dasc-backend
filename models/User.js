@@ -52,7 +52,7 @@ const authenticateUser = async (email, password) => {
     const user = result[0];
 
     // Comparar la contraseña con el hash almacenado
-    const isPasswordValid = password === user.password; // sin bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
         throw new Error('Contraseña incorrecta');
     }
