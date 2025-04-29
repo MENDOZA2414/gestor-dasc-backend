@@ -2,11 +2,11 @@ const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
     // Obtener el token del encabezado de la solicitud
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const token = req.cookies.token; 
 
     // Verificar si el token existe
     if (!token) {
-        return res.status(401).json({ message: 'Acceso denegado, no hay token.' });
+        return res.status(401).json({ message: 'Acceso denegado. Token no encontrado.' });
     }
 
     try {
@@ -16,7 +16,7 @@ const authMiddleware = (req, res, next) => {
         next(); // Continuar al siguiente middleware o controlador
     } catch (error) {
         // Si el token no es válido o ha expirado, devolver un error
-        return res.status(400).json({ message: 'Token no válido.' });
+        return res.status(401).json({ message: 'Token no válido o expirado.' })
     }
 };
 
