@@ -42,6 +42,7 @@ const registerUserController = async (req, res) => {
             userTypeID: user.userTypeID
         });
     } catch (error) {
+        console.error('Error en login:', error.message); 
         res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
     }
 };
