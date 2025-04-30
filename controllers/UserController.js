@@ -33,7 +33,7 @@ const registerUserController = async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: true,        
-            sameSite: 'None',  
+            sameSite: 'none',  
             maxAge: rememberMe ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
           });          
 
