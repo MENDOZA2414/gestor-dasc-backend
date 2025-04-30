@@ -61,7 +61,8 @@ const loginUserController = async (req, res) => {
     // Respuesta
     res.status(200).send({
       message: 'Login exitoso',
-      userTypeID: user.userTypeID
+      userTypeID: user.userTypeID,
+      token
     });
 
   } catch (error) {
