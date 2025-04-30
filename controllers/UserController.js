@@ -32,8 +32,8 @@ const registerUserController = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // true solo en producción
-            sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+            secure: true,        
+            sameSite: 'None',  
             maxAge: rememberMe ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
           });          
 
