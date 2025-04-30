@@ -11,18 +11,24 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Validar que el sessionToken del JWT coincida con el de la BD
+    // Validar que el sessionToken del JWT coincida con el de la base de datos
     const [result] = await pool.query('SELECT sessionToken FROM User WHERE userID = ?', [decoded.id]);
     const sessionInDB = result[0]?.sessionToken;
 
     if (!sessionInDB || sessionInDB !== decoded.sessionToken) {
-      return res.status(401).json({ message: 'Sesión inválida o reemplazada desde otro dispositivo' });
+      return res.status(401).json({
+        message: 'Sesión inválida o reemplazada desde otro dispositivo'
+      });
     }
 
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Token inválido o expirado' });
+    const errorMsg = error.name === 'TokenExpiredError'
+      ? 'Token expirado'
+      : 'Token inválido o modificado';
+
+    return res.status(401).json({ message: errorMsg });
   }
 };
 

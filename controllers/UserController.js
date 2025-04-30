@@ -22,19 +22,22 @@ const loginUserController = async (req, res) => {
   try {
     const user = await authenticateUser(email, password);
 
-    // Verificar si hay una sesión activa
+    // Obtener token actual de la BD
     const [sessionResult] = await pool.query('SELECT sessionToken FROM User WHERE userID = ?', [user.userID]);
     const currentToken = sessionResult[0]?.sessionToken;
 
+    // Si ya hay token y NO pidió reemplazar sesión
     if (currentToken && !override) {
       return res.status(409).send({ message: 'Ya hay una sesión activa para este usuario.' });
     }
 
-    // Generar y guardar nuevo sessionToken
+    // Generar un nuevo sessionToken
     const sessionToken = uuidv4();
+
+    // Guardar en la base de datos
     await pool.query('UPDATE User SET sessionToken = ? WHERE userID = ?', [sessionToken, user.userID]);
 
-    // Crear token JWT con sessionToken incluido
+    // Generar JWT con sessionToken
     const token = jwt.sign(
       {
         id: user.userID,
@@ -44,35 +47,52 @@ const loginUserController = async (req, res) => {
         sessionToken
       },
       process.env.JWT_SECRET,
-      { expiresIn: rememberMe ? '7d' : '1h' }
+      { expiresIn: rememberMe ? 6 * 60 : 4 * 60 } // minutos de prueba
     );
 
+    // Enviar cookie con JWT
     res.cookie('token', token, {
       httpOnly: true,
       secure: true,
       sameSite: 'None',
-      maxAge: rememberMe ? 6 * 60 * 1000 : 4 * 60 * 1000
+      maxAge: rememberMe ? 6 * 60 * 1000 : 4 * 60 * 1000 // en milisegundos
     });
 
+    // Respuesta
     res.status(200).send({
       message: 'Login exitoso',
       userTypeID: user.userTypeID
     });
+
   } catch (error) {
     console.error('Error en login:', error.message);
     res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
   }
 };
 
+
 // Cerrar sesión
-const logoutUserController = (req, res) => {
+const logoutUserController = async (req, res) => {
+  const token = req.cookies.token;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [decoded.id]);
+    } catch (err) {
+      // Token inválido o expirado, no se hace nada
+    }
+  }
+
   res.clearCookie('token', {
     httpOnly: true,
     secure: true,
     sameSite: 'None'
   });
+
   res.status(200).send({ message: 'Sesión cerrada correctamente' });
 };
+
 
 module.exports = {
   registerUserController,
