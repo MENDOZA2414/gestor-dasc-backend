@@ -74,7 +74,9 @@ const loginUserController = async (req, res) => {
 
 // Cerrar sesión
 const logoutUserController = async (req, res) => {
-  const token = req.cookies.token;
+  const cookieToken = req.cookies.token;
+  const headerToken = req.headers.authorization?.replace('Bearer ', '');
+  const token = cookieToken || headerToken;
 
   if (token) {
     try {
@@ -93,7 +95,6 @@ const logoutUserController = async (req, res) => {
 
   res.status(200).send({ message: 'Sesión cerrada correctamente' });
 };
-
 
 module.exports = {
   registerUserController,
