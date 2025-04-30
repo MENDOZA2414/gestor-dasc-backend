@@ -1,19 +1,28 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db'); 
+const pool = require('../config/db');
 
 const authMiddleware = async (req, res, next) => {
   const token = req.cookies.token;
 
   if (!token) {
-    return res.status(401).json({ message: 'No hay sesión activa' }); 
+    return res.status(401).json({ message: 'No hay sesión activa' });
   }
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Validar que el sessionToken del JWT coincida con el de la BD
+    const [result] = await pool.query('SELECT sessionToken FROM User WHERE userID = ?', [decoded.id]);
+    const sessionInDB = result[0]?.sessionToken;
+
+    if (!sessionInDB || sessionInDB !== decoded.sessionToken) {
+      return res.status(401).json({ message: 'Sesión inválida o reemplazada desde otro dispositivo' });
+    }
+
+    req.user = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Token inválido o expirado' }); 
+    return res.status(401).json({ message: 'Token inválido o expirado' });
   }
 };
 
