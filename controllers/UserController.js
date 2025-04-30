@@ -34,7 +34,7 @@ const registerUserController = async (req, res) => {
             httpOnly: true,
             secure: true,        
             sameSite: 'None',  
-            maxAge: rememberMe ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
+            maxAge: rememberMe ? 2 * 60 * 1000 : 1 * 60 * 1000 // 7 días o 1 hora
           });          
 
         res.status(200).send({
@@ -52,6 +52,7 @@ const logoutUserController = (req, res) => {
     res.clearCookie('token');
     res.status(200).send({ message: 'Sesión cerrada correctamente' });
 };
+
 
 
 module.exports = { registerUserController, loginUserController, logoutUserController };
