@@ -48,10 +48,15 @@ const registerUserController = async (req, res) => {
 };
 
  // Controlador para cerrar sesión
-const logoutUserController = (req, res) => {
-    res.clearCookie('token');
+ const logoutUserController = (req, res) => {
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'None'
+    });
     res.status(200).send({ message: 'Sesión cerrada correctamente' });
-};
+  };
+  
 
 
 
