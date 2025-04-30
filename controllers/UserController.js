@@ -34,7 +34,7 @@ const registerUserController = async (req, res) => {
             httpOnly: true,
             secure: true,        
             sameSite: 'None',  
-            maxAge: rememberMe ? 2 * 60 * 1000 : 1 * 60 * 1000 // 7 días o 1 hora
+            maxAge: rememberMe ? 7 * 60 * 1000 : 4 * 60 * 1000 
           });          
 
         res.status(200).send({
