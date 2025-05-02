@@ -30,6 +30,31 @@ const routeMap = {
   admin: "admin/"
 };
 
+// Asigna documentType según el tipo de usuario
+function mapUserTypeToDocumentType(userType) {
+  switch (userType) {
+    case 'student': return 'Student';
+    case 'internalAssessor': return 'InternalAssessor';
+    case 'externalAssessor': return 'ExternalAssessor';
+    case 'admin':
+    case 'system': return 'System';
+    default: return null;
+  }
+}
+
+// Asigna status inicial según el tipo de usuario
+function getInitialStatusByUserType(userType) {
+  switch (userType) {
+    case 'student': return 'Pending';
+    case 'internalAssessor': return 'Accepted';
+    case 'externalAssessor': return 'InReview';
+    case 'admin':
+    case 'system': return 'Accepted';
+    default: return null;
+  }
+}
+
+
 const uploadGeneralDocument = async (req, res) => {
   upload(req, res, async function (err) {
     if (err) return res.status(400).json({ error: "Error al procesar archivo" });
@@ -53,8 +78,17 @@ const uploadGeneralDocument = async (req, res) => {
       .replace(/[^\w.-]/g, "");
 
     const basePath = routeMap[userType] + userID;
-    const ftpPath = `/practices/${basePath}/documents/${tipoDocumento}/${safeFileName}`;
+    const documentType = mapUserTypeToDocumentType(userType);
+    const status = getInitialStatusByUserType(userType);
+    
+    if (!documentType || !status) {
+      return res.status(400).json({ error: "Tipo de usuario no válido para documento" });
+    }
+    
+    const composedFileName = `${tipoDocumento}_${status}_${safeFileName}`;
+    const ftpPath = `/practices/${basePath}/documents/${composedFileName}`;
     const fullUrl = `https://uabcs.online${ftpPath}`;
+    
 
     try {
       // Subir archivo al FTP desde buffer
@@ -76,9 +110,10 @@ const uploadGeneralDocument = async (req, res) => {
         // Guardar en la base de datos
         await StudentDocumentation.saveDocument(
           studentID,
-          safeFileName,
+          composedFileName, 
           fullUrl,
-          tipoDocumento
+          documentType, 
+          status
         );
       }      
 

@@ -1,13 +1,15 @@
 const pool = require('../config/db');
 
 // Guardar un nuevo documento (subido por alumno)
-const saveDocument = async (studentID, fileName, filePath, documentType) => {
+const saveDocument = async (studentID, fileName, filePath, documentType, status) => {
     const query = `
-        INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp)
-        VALUES (?, ?, ?, ?, 'pendiente', NOW())
+      INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp)
+      VALUES (?, ?, ?, ?, ?, NOW())
     `;
-    await pool.query(query, [studentID, fileName, filePath, documentType]);
-};
+
+    await pool.query(query, [studentID, fileName, filePath, documentType, status]);
+  };
+  
 
 // Obtener documentos por alumno y estatus
 const getDocumentsByStudentAndStatus = async (studentID, status) => {
@@ -120,11 +122,12 @@ const deleteDocument = async (documentID) => {
 };
 
 module.exports = {
-    saveDocument, // 👈 Agregado
-    getDocumentsByStudentAndStatus,
-    getDocumentByID,
-    countAcceptedDocuments,
-    approveDocument,
-    rejectDocument,
-    deleteDocument
+  getDocumentsByStudentAndStatus,
+  getDocumentByID,
+  countAcceptedDocuments,
+  approveDocument,
+  rejectDocument,
+  deleteDocument,
+  saveDocument 
 };
+
