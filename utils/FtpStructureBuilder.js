@@ -6,39 +6,23 @@ async function createFtpStructure(userType, id) {
   try {
     await client.access(ftpConfig);
 
-    let base = "";
-    let folders = [];
+    // Mapeo de tipos de usuario a su ruta base
+    const typeMap = {
+      student: `students/student_${id}`,
+      internalAssessor: `internalAssessor/assessor_${id}`,
+      externalAssessor: `externalAssessor/assessor_${id}`,
+      company: `company/company_${id}`
+    };
 
-    if (userType === "student") {
-      base = `/practices/students/student_${id}`;
-      folders = [
-        `${base}/profiles`,
-        `${base}/curriculums`,
-        `${base}/documents/imss`,
-        `${base}/documents/presentation_letter`,
-        `${base}/documents/acceptance_letter`,
-        `${base}/documents/commitment_letter`,
-        `${base}/documents/termination_letter`,
-        `${base}/documents/satisfaction_survey`,
-        `${base}/documents/final_report`,
-        `${base}/documents/others`,
-        `${base}/messages`,
-        `${base}/sent_to_company`,
-        `${base}/sent_to_assessor`,
-        `${base}/reports`
-      ];
-    } else if (userType === "internalAssessor") {
-      base = `/practices/internalAssessor/assessor_${id}`;
-      folders = [`${base}/documents_received`, `${base}/tracking`, `${base}/signed_reports`];
-    } else if (userType === "externalAssessor") {
-      base = `/practices/externalAssessor/assessor_${id}`;
-      folders = [`${base}/delivered_documents`];
-    } else if (userType === "company") {
-      base = `/practices/company/company_${id}`;
-      folders = [`${base}/documents_received`, `${base}/presentation_letters`];
+    // Validar tipo de usuario
+    if (!typeMap[userType]) {
+      throw new Error(`Tipo de usuario no válido: ${userType}`);
     }
 
-    // Crear carpetas si no existen
+    const base = `/practices/${typeMap[userType]}`;
+    const folders = [`${base}/documents`];
+
+    // Crear las carpetas si no existen
     for (const folder of folders) {
       const parts = folder.split("/").filter(Boolean);
       await client.cd("/");
