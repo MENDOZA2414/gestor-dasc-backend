@@ -51,7 +51,8 @@ const uploadProfilePhoto = async (req, res) => {
 
     // Subir nueva foto al FTP
     const remotePath = `/images/profiles/${req.generatedFileName}`;
-    const publicUrl = `https://uabcs.online${remotePath}`;
+    const publicUrl = `https://uabcs.online/practicas${remotePath}`;
+
 
     // Subir archivo al FTP
     await uploadToFTP(req.bufferFile, remotePath, { overwrite: true });
