@@ -1,15 +1,10 @@
 const ftp = require("basic-ftp");
+const ftpConfig = require("../config/ftpConfig");
 
 async function createFtpStructure(userType, id) {
   const client = new ftp.Client();
   try {
-    await client.access({
-      host: "uabcs.online",
-      user: "practicas@uabcs.online",
-      password: "G1vNRIluN.k5",
-      port: 21,
-      secure: false
-    });
+    await client.access(ftpConfig);
 
     let base = "";
     let folders = [];
@@ -43,6 +38,7 @@ async function createFtpStructure(userType, id) {
       folders = [`${base}/documents_received`, `${base}/presentation_letters`];
     }
 
+    // Crear carpetas si no existen
     for (const folder of folders) {
       const parts = folder.split("/").filter(Boolean);
       await client.cd("/");

@@ -1,4 +1,4 @@
-const uploadToFTP = require("../middleware/UploadFile");
+const uploadToFTP = require("../utils/FtpUploader");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -55,42 +55,37 @@ const uploadGeneralDocument = async (req, res) => {
     const ftpPath = `/practicas/${routeMap[userType]}/${tipoDocumento}/${safeFileName}`;
 
     try {
-      console.log("Ruta LOCAL:", localPath);
-      console.log("Ruta FTP final:", ftpPath);
       await uploadToFTP(localPath, ftpPath);
 
+      // Guardar en base de datos si el usuario es estudiante
       if (userType === "student") {
-        try {
-          const [[studentRow]] = await db.query(`
-            SELECT studentID FROM Student WHERE userID = ?
-          `, [userID]);
-      
-          if (!studentRow) {
-            return res.status(404).json({ error: "Alumno no encontrado para este usuario" });
-          }
-      
-          const studentID = studentRow.studentID;
-      
-          await db.query(`
-            INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp)
-            VALUES (?, ?, ?, ?, 'pendiente', NOW())
-          `, [
-            studentID,
-            req.file.originalname,
-            `https://uabcs.online${ftpPath}`,
-            "Local" // Siempre que sube el alumno
-          ]);
-        } catch (dbError) {
-          console.error("Error al insertar en la base de datos:", dbError);
-          return res.status(500).json({ error: "Archivo subido pero falló el registro en base de datos" });
+        const [[studentRow]] = await db.query(`
+          SELECT studentID FROM Student WHERE userID = ?
+        `, [userID]);
+
+        if (!studentRow) {
+          return res.status(404).json({ error: "Alumno no encontrado para este usuario" });
         }
-      }        
+
+        const studentID = studentRow.studentID;
+
+        await db.query(`
+          INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp)
+          VALUES (?, ?, ?, ?, 'pendiente', NOW())
+        `, [
+          studentID,
+          req.file.originalname,
+          `https://uabcs.online${ftpPath}`,
+          "Local"
+        ]);
+      }
 
       res.status(200).json({
         message: "Archivo subido correctamente",
         ftpPath: `https://uabcs.online${ftpPath}`
       });
     } catch (error) {
+      console.error("Error al subir el archivo:", error);
       res.status(500).json({ error: "Error al subir archivo al FTP" });
     }
   });

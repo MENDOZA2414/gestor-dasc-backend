@@ -1,26 +1,22 @@
 const ftp = require("basic-ftp");
 const path = require("path");
 const fs = require("fs");
+const ftpConfig = require("../config/ftpConfig"); 
 
 const uploadToFTP = async (localFilePath, ftpPath, options = { overwrite: false }) => {
   const client = new ftp.Client();
   try {
-    await client.access({
-      host: "uabcs.online",
-      user: "practicas@uabcs.online",
-      password: "G1vNRIluN.k5",
-      port: 21,
-      secure: false
-    });
+    // Conexión al servidor FTP usando configuración externa
+    await client.access(ftpConfig);
 
     const remoteDir = path.posix.dirname(ftpPath);
     const remoteFile = path.posix.basename(ftpPath);
     const dirs = remoteDir.split("/");
 
-    // Empieza desde raíz
+    // Comienza desde la raíz
     await client.cd("/");
 
-    // Crear subdirectorios solo si no existen
+    // Crear subdirectorios si no existen
     for (const dir of dirs) {
       if (dir.trim() !== "") {
         try {
@@ -36,14 +32,17 @@ const uploadToFTP = async (localFilePath, ftpPath, options = { overwrite: false 
     const existingFiles = await client.list();
     const alreadyExists = existingFiles.some(file => file.name === remoteFile);
 
+    // Manejo si ya existe el archivo
     if (alreadyExists && !options.overwrite) {
       throw new Error(`Ya existe un archivo con el nombre '${remoteFile}' en la ruta '${remoteDir}'.`);
     }
 
+    // Si se permite sobreescribir, eliminar el anterior
     if (alreadyExists && options.overwrite) {
       await client.remove(remoteFile);
     }
 
+    // Subir archivo
     await client.uploadFrom(localFilePath, remoteFile);
     console.log("Archivo subido correctamente");
   } catch (err) {
@@ -51,6 +50,8 @@ const uploadToFTP = async (localFilePath, ftpPath, options = { overwrite: false 
     throw err;
   } finally {
     client.close();
+
+    // Eliminar archivo temporal local después de subirlo
     if (fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }

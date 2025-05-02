@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const fileUploadController = require("../controllers/FileUploadController");
+const documentController = require("../controllers/DocumentController");
 
-router.post("/upload", fileUploadController.uploadGeneralDocument);
+// Subida general de documentos (archivos FTP)
+router.post("/upload", documentController.uploadGeneralDocument);
 
 module.exports = router;
