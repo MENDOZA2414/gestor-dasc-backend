@@ -1,72 +1,99 @@
 const pool = require('../config/db');
 const { registerUser } = require('./User');
+const validateStudentData = require('../utils/ValidateStudentData');
+const createFtpStructure = require('../middleware/CreateFtpStructure');
+const uploadToFTP = require('../middleware/UploadFile');
+const path = require("path");
+const fs = require("fs");
 
-// Registrar un alumno
 const registerStudent = async (studentData) => {
-    const connection = await pool.getConnection(); // Obtener la conexión
-    try {
-        // Iniciar la transacción
-        await connection.beginTransaction();
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-        const {
-            email,
-            password,
-            phone,
-            firstName,
-            firstLastName,
-            secondLastName,
-            dateOfBirth,
-            career,
-            semester,
-            shift,
-            controlNumber,
-            studentStatus,
-            status,
-            internalAssessorID,
-            photo
-        } = studentData;
+    // Validaciones de entrada
+    validateStudentData(studentData);
 
-        // Verificar si el número de control ya existe
-        const checkControlNumberQuery = 'SELECT * FROM Student WHERE controlNumber = ?';
-        const [existingStudent] = await connection.query(checkControlNumberQuery, [controlNumber]);
-        if (existingStudent.length > 0) {
-            throw new Error('El número de control ya está registrado');
-        }
+    const {
+      email, password, phone,
+      firstName, firstLastName, secondLastName,
+      dateOfBirth, career, semester, shift,
+      controlNumber, studentStatus, status,
+      internalAssessorID, photo
+    } = studentData;
 
-        // **Verificar si el internalAssessorID existe**
-        const checkAssessorQuery = 'SELECT * FROM InternalAssessor WHERE internalAssessorID = ?';
-        const [existingAssessor] = await connection.query(checkAssessorQuery, [internalAssessorID]);
-        if (existingAssessor.length === 0) {
-            throw new Error('El asesor interno no existe');
-        }
-
-        // Validar formato del número de control (solo números y longitud específica)
-        if (!/^\d+$/.test(controlNumber) || controlNumber.length !== 8) {
-            throw new Error('El número de control debe ser un número de 8 dígitos');
-        }
-
-        // Continúa con el registro del usuario y el estudiante...
-        const userID = await registerUser(connection, email, password, phone, 3); 
-
-        const query = `
-            INSERT INTO Student (controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        await connection.query(query, [
-            controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo
-        ]);
-
-        await connection.commit(); // Confirmar la transacción
-        return { message: 'Alumno registrado exitosamente' };
-
-    } catch (error) {
-        await connection.rollback(); // Revertir la transacción si hay error
-        throw error;
-    } finally {
-        connection.release(); // Liberar la conexión
+    // Validar duplicado
+    const [existingStudent] = await connection.query(
+      'SELECT * FROM Student WHERE controlNumber = ?',
+      [controlNumber]
+    );
+    if (existingStudent.length > 0) {
+      throw new Error('El número de control ya está registrado');
     }
-};
 
+    // Validar existencia del asesor interno
+    const [existingAssessor] = await connection.query(
+      'SELECT * FROM InternalAssessor WHERE internalAssessorID = ?',
+      [internalAssessorID]
+    );
+    if (existingAssessor.length === 0) {
+      throw new Error('El asesor interno no existe');
+    }
+
+    // ✅ Validar que la foto exista ANTES de registrar
+    if (photo) {
+      const localPhotoPath = path.join("uploads", photo);
+      if (!fs.existsSync(localPhotoPath)) {
+        throw new Error(`La foto de perfil "${photo}" no existe en /uploads`);
+      }
+    }
+
+    // Registrar usuario
+    const userID = await registerUser(connection, email, password, phone, 3);
+
+    // Insertar alumno
+    const insertQuery = `
+      INSERT INTO Student (controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    await connection.query(insertQuery, [
+      controlNumber, userID, firstName, firstLastName, secondLastName,
+      dateOfBirth, career, semester, shift,
+      studentStatus, status, internalAssessorID, photo
+    ]);
+
+    const [[{ studentID }]] = await connection.query("SELECT LAST_INSERT_ID() AS studentID");
+
+    await connection.commit();
+
+    // Crear estructura en FTP
+    await createFtpStructure("student", studentID);
+
+    // Subir foto si existe
+    if (photo) {
+      const localPhotoPath = path.join("uploads", photo);
+      const safeFileName = photo
+        .replace(/\s+/g, "_")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w.-]/g, "");
+      const ftpPhotoPath = `/practices/students/student_${studentID}/profile/${safeFileName}`;
+      try {
+        await uploadToFTP(localPhotoPath, ftpPhotoPath, { overwrite: true });
+      } catch (err) {
+        console.warn("Alumno registrado, pero falló la subida de la foto:", err.message);
+      }
+    }
+
+    return { message: 'Alumno registrado exitosamente' };
+
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
 
 // Obtener un alumno por su controlNumber
 const getStudentByControlNumber = async (controlNumber) => {
@@ -97,7 +124,6 @@ const getAllStudents = async (internalAssessorID) => {
     const [results] = await pool.query(query, [internalAssessorID]);
     return results;
 };
-
 
 // Contar alumnos en el sistema
 const countStudents = async () => {

@@ -1,56 +1,68 @@
 const ftp = require("basic-ftp");
 
-async function createFtpStructure(client, studentID) {
-  const base = `/practices/students/student_${studentID}`;
-
-  const studentFolders = [
-    `${base}/profile`,                     // perfil del alumno
-    `${base}/curriculums`,                // CVs
-    `${base}/documents/imss`,
-    `${base}/documents/presentation_letter`,
-    `${base}/documents/acceptance_letter`,
-    `${base}/documents/commitment_letter`,
-    `${base}/documents/termination_letter`,
-    `${base}/documents/satisfaction_survey`,
-    `${base}/documents/final_report`,
-    `${base}/documents/others`,
-    `${base}/messages`,
-    `${base}/sent_to_company`,
-    `${base}/sent_to_assessor`,
-    `${base}/reports`
-  ];
-
-  const sharedFolders = [
-    `/practices/internalAssessor/assessor_{id}/documents_received`,
-    `/practices/internalAssessor/assessor_{id}/tracking`,
-    `/practices/internalAssessor/assessor_{id}/signed_reports`,
-    `/practices/externalAssessor/assessor_{id}/delivered_documents`,
-    `/practices/company/company_{id}/documents_received`,
-    `/practices/company/company_{id}/presentation_letters`,
-    `/practices/formats/templates`,
-    `/practices/formats/guides`,
-    `/practices/formats/general`
-  ];
-
+async function createFtpStructure(userType, id) {
+  const client = new ftp.Client();
   try {
-    await client.cd("/");
+    await client.access({
+      host: "uabcs.online",
+      user: "practicas@uabcs.online",
+      password: "G1vNRIluN.k5",
+      port: 21,
+      secure: false
+    });
 
-    for (const folder of [...studentFolders, ...sharedFolders]) {
+    let base = "";
+    let folders = [];
+
+    if (userType === "student") {
+      base = `/practices/students/student_${id}`;
+      folders = [
+        `${base}/profile`,
+        `${base}/curriculums`,
+        `${base}/documents/imss`,
+        `${base}/documents/presentation_letter`,
+        `${base}/documents/acceptance_letter`,
+        `${base}/documents/commitment_letter`,
+        `${base}/documents/termination_letter`,
+        `${base}/documents/satisfaction_survey`,
+        `${base}/documents/final_report`,
+        `${base}/documents/others`,
+        `${base}/messages`,
+        `${base}/sent_to_company`,
+        `${base}/sent_to_assessor`,
+        `${base}/reports`
+      ];
+    } else if (userType === "internalAssessor") {
+      base = `/practices/internalAssessor/assessor_${id}`;
+      folders = [`${base}/documents_received`, `${base}/tracking`, `${base}/signed_reports`];
+    } else if (userType === "externalAssessor") {
+      base = `/practices/externalAssessor/assessor_${id}`;
+      folders = [`${base}/delivered_documents`];
+    } else if (userType === "company") {
+      base = `/practices/company/company_${id}`;
+      folders = [`${base}/documents_received`, `${base}/presentation_letters`];
+    }
+
+    for (const folder of folders) {
       const parts = folder.split("/").filter(Boolean);
+      await client.cd("/");
       for (let i = 0; i < parts.length; i++) {
         const path = "/" + parts.slice(0, i + 1).join("/");
         try {
           await client.cd(path);
         } catch {
           await client.send("MKD " + path);
+          await client.cd(path);
         }
       }
     }
 
-    console.log(`FTP structure created for student_${studentID}`);
+    console.log(`FTP structure created for ${userType}_${id}`);
   } catch (err) {
     console.error("Error creating FTP structure:", err);
     throw err;
+  } finally {
+    client.close();
   }
 }
 

@@ -2,7 +2,7 @@ const ftp = require("basic-ftp");
 const path = require("path");
 const fs = require("fs");
 
-const uploadToFTP = async (localFilePath, ftpPath) => {
+const uploadToFTP = async (localFilePath, ftpPath, options = { overwrite: false }) => {
   const client = new ftp.Client();
   try {
     await client.access({
@@ -24,12 +24,24 @@ const uploadToFTP = async (localFilePath, ftpPath) => {
     for (const dir of dirs) {
       if (dir.trim() !== "") {
         try {
-          await client.cd(dir); // Si existe, entra
+          await client.cd(dir);
         } catch {
-          await client.send(`MKD ${dir}`); // Si no existe, crea
-          await client.cd(dir); // Luego entra
+          await client.send("MKD " + dir);
+          await client.cd(dir);
         }
       }
+    }
+
+    // Verificar si el archivo ya existe
+    const existingFiles = await client.list();
+    const alreadyExists = existingFiles.some(file => file.name === remoteFile);
+
+    if (alreadyExists && !options.overwrite) {
+      throw new Error(`Ya existe un archivo con el nombre '${remoteFile}' en la ruta '${remoteDir}'.`);
+    }
+
+    if (alreadyExists && options.overwrite) {
+      await client.remove(remoteFile);
     }
 
     await client.uploadFrom(localFilePath, remoteFile);

@@ -10,10 +10,19 @@ const registerStudentController = async (req, res) => {
     } catch (error) {
         console.error('Error al registrar el alumno:', error.message);
 
-        // Verificar si es un error de validación y devolver un 400 Bad Request
-        if (error.message.includes('El número de control') || 
-            error.message.includes('El email ya está registrado') ||
-            error.message.includes('El número de teléfono')) {
+        // Errores de validación
+        const knownValidationErrors = [
+            'El número de control',
+            'El email ya está registrado',
+            'El número de teléfono',
+            'Formato de email',
+            'Debe tener 10 dígitos',
+            'Campo requerido',
+            'Valor no permitido',
+            'El asesor interno no existe',
+        ];
+
+        if (knownValidationErrors.some(msg => error.message.includes(msg))) {
             return res.status(400).send({ message: error.message });
         }
 
@@ -21,7 +30,6 @@ const registerStudentController = async (req, res) => {
         res.status(500).send({ message: 'Error al registrar el alumno', error: error.message });
     }
 };
-
 
 // Obtener un alumno por controlNumber
 const getStudentByControlNumber = async (req, res) => {
