@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 const { registerUser } = require('./User');
 const validateStudentData = require('../utils/ValidateStudentData');
-const createFtpStructure = require('../middleware/CreateFtpStructure');
+const createFtpStructure = require('../utils/FtpStructureBuilder');
 const path = require("path");
 const fs = require("fs");
 

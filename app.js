@@ -13,7 +13,7 @@ const companyRoutes = require('./routes/CompanyRoutes');
 const studentApplicationRoutes = require('./routes/StudentApplicationRoutes');  
 const practicePositionRoutes = require('./routes/PracticePositionRoutes');  
 const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes');  
-const fileUploadRoutes = require("./routes/FileUploadRoutes");
+const documentRoutes = require('./routes/DocumentRoutes');
 
 const app = express();
 
@@ -38,13 +38,11 @@ const corsOptions = {
 // Usar CORS como middleware global con las opciones configuradas
 app.use(cors(corsOptions));
 
-
 // Middlewares
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-
 
 // Ruta raíz simple para verificar que el servidor está en funcionamiento
 app.get('/', (req, res) => {
@@ -52,15 +50,15 @@ app.get('/', (req, res) => {
 });
 
 // Uso de rutas actualizadas
-app.use('/user', userRoutes);
-app.use('/students', studentRoutes);  // Rutas para alumnos
-app.use('/internalAssessors', internalAssessorRoutes);  // Rutas para asesores internos
-app.use('/externalAssessors', externalAssessorRoutes);  // Rutas para asesores externos
-app.use('/companies', companyRoutes);  // Rutas para entidades receptoras
-app.use('/applications', studentApplicationRoutes);  // Rutas para postulaciones
-app.use('/practicePositions', practicePositionRoutes);  // Rutas para vacantes
-app.use('/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
-app.use("/api/files", fileUploadRoutes); // Rutas para carga de archivos
+app.use('/api/users', userRoutes);  // Rutas para usuarios (registro, login, foto, etc.)
+app.use('/api/students', studentRoutes);  // Rutas para alumnos
+app.use('/api/internalAssessors', internalAssessorRoutes);  // Rutas para asesores internos
+app.use('/api/externalAssessors', externalAssessorRoutes);  // Rutas para asesores externos
+app.use('/api/companies', companyRoutes);  // Rutas para entidades receptoras
+app.use('/api/applications', studentApplicationRoutes);  // Rutas para postulaciones
+app.use('/api/practicePositions', practicePositionRoutes);  // Rutas para vacantes
+app.use('/api/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
+app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 
 // Manejo de errores
 app.use((req, res, next) => {

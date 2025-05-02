@@ -3,7 +3,7 @@ const router = express.Router();
 const { registerUserController, loginUserController, logoutUserController } = require('../controllers/UserController');
 const { uploadProfilePhoto } = require('../controllers/ProfileController');
 const uploadProfile = require('../middlewares/ProfileUpload');
-const authMiddleware = require('../middleware/AuthMiddleware');
+const authMiddleware = require('../middlewares/AuthMiddleware');
 
 // Ruta para registrar un nuevo usuario (pública)
 router.post('/register', registerUserController);
