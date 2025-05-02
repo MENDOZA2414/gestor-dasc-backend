@@ -12,7 +12,7 @@ async function createFtpStructure(userType, id) {
     if (userType === "student") {
       base = `/practices/students/student_${id}`;
       folders = [
-        `${base}/profile`,
+        `${base}/profiles`,
         `${base}/curriculums`,
         `${base}/documents/imss`,
         `${base}/documents/presentation_letter`,
