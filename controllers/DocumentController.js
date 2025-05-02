@@ -3,6 +3,8 @@ const createFtpStructure = require("../utils/FtpStructureBuilder");
 const multer = require("multer");
 const path = require("path");
 const db = require("../config/db");
+const ftpConfig = require("../config/ftpConfig");
+const ftp = require("basic-ftp");
 const StudentDocumentation = require("../models/StudentDocumentation");
 
 const storage = multer.memoryStorage(); // Guardar archivo en memoria
@@ -54,6 +56,33 @@ function getInitialStatusByUserType(userType) {
   }
 }
 
+// Stream de un documento PDF desde el FTP
+const streamDocumentByPath = async (req, res) => {
+  const { path, download } = req.query;
+
+  if (!path) {
+    return res.status(400).json({ error: "La ruta del archivo es requerida (query param 'path')." });
+  }
+
+  const client = new ftp.Client();
+  try {
+    await client.access(ftpConfig);
+
+    const fileName = path.split("/").pop();
+    const disposition = download === "true" ? "attachment" : "inline";
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${fileName}"`);
+
+    // Leer directamente del FTP
+    await client.downloadTo(res, `/practices/${path}`);
+  } catch (err) {
+    console.error("Error al hacer stream del documento:", err.message);
+    res.status(500).json({ error: "No se pudo obtener el documento" });
+  } finally {
+    client.close();
+  }
+};
 
 const uploadGeneralDocument = async (req, res) => {
   upload(req, res, async function (err) {
@@ -129,4 +158,7 @@ const uploadGeneralDocument = async (req, res) => {
   });
 };
 
-module.exports = { uploadGeneralDocument };
+module.exports = {
+  uploadGeneralDocument,
+  streamDocumentByPath
+};
