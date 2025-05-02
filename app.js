@@ -13,6 +13,7 @@ const companyRoutes = require('./routes/CompanyRoutes');
 const studentApplicationRoutes = require('./routes/StudentApplicationRoutes');  
 const practicePositionRoutes = require('./routes/PracticePositionRoutes');  
 const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes');  
+const fileUploadRoutes = require("./routes/FileUploadRoutes");
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/companies', companyRoutes);  // Rutas para entidades receptoras
 app.use('/applications', studentApplicationRoutes);  // Rutas para postulaciones
 app.use('/practicePositions', practicePositionRoutes);  // Rutas para vacantes
 app.use('/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
+app.use("/api/files", fileUploadRoutes); // Rutas para carga de archivos
 
 // Manejo de errores
 app.use((req, res, next) => {
