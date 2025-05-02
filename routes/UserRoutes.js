@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { registerUserController, loginUserController, logoutUserController } = require('../controllers/UserController');
+const { uploadProfilePhoto } = require('../controllers/ProfileController');
+const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middleware/AuthMiddleware');
 
 // Ruta para registrar un nuevo usuario (pública)
@@ -11,6 +13,9 @@ router.post('/login', loginUserController);
 
 // Ruta para cerrar sesión (pública)
 router.get('/logout', logoutUserController);
+
+// Subir o actualizar foto de perfil (protegida)
+router.post('/upload-profile-photo', authMiddleware, uploadProfile, uploadProfilePhoto);
 
 // Ejemplo de ruta protegida (necesita token)
 router.get('/protected', authMiddleware, (req, res) => {
