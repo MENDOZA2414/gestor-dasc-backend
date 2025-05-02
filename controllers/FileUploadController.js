@@ -1,4 +1,4 @@
-const uploadToFTP = require("../middleware/uploadFile");
+const uploadToFTP = require("../middleware/UploadFile");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
