@@ -26,9 +26,17 @@ const loginUserController = async (req, res) => {
     const [sessionResult] = await pool.query('SELECT sessionToken FROM User WHERE userID = ?', [user.userID]);
     const currentToken = sessionResult[0]?.sessionToken;
 
-    // Si ya hay token y NO pidió reemplazar sesión
+    // Si hay token existente
     if (currentToken && !override) {
-      return res.status(409).send({ message: 'Ya hay una sesión activa para este usuario.' });
+      try {
+        // Verificamos si el token aún es válido
+        jwt.verify(currentToken, process.env.JWT_SECRET);
+
+        // Si es válido y no hay override, denegar login
+        return res.status(409).send({ message: 'Ya hay una sesión activa para este usuario.' });
+      } catch (err) {
+        // Si el token ha expirado o es inválido, permitimos continuar
+      }
     }
 
     // Generar un nuevo sessionToken
@@ -70,7 +78,6 @@ const loginUserController = async (req, res) => {
     res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
   }
 };
-
 
 // Cerrar sesión
 const logoutUserController = async (req, res) => {

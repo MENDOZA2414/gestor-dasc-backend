@@ -12,6 +12,7 @@ const authMiddleware = async (req, res, next) => {
   }
 
   try {
+    // Verifica que el token sea válido y no esté expirado
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Validar que el sessionToken del JWT coincida con el de la base de datos
@@ -19,6 +20,7 @@ const authMiddleware = async (req, res, next) => {
       'SELECT sessionToken FROM User WHERE userID = ?',
       [decoded.id]
     );
+
     const sessionInDB = result[0]?.sessionToken;
 
     if (!sessionInDB || sessionInDB !== decoded.sessionToken) {
@@ -27,7 +29,7 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    req.user = decoded;
+    req.user = decoded; // Se adjunta el usuario al request
     next();
   } catch (error) {
     const errorMsg =
