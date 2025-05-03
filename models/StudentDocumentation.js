@@ -13,11 +13,16 @@ const saveDocument = async (studentID, fileName, filePath, documentType, status)
 
 // Obtener documentos por alumno y estatus
 const getDocumentsByStudentAndStatus = async (studentID, status) => {
-    const query = 'SELECT documentID AS id, fileName FROM StudentDocumentation WHERE studentID = ? AND status = ?';
+    const query = `
+      SELECT documentID, fileName, filePath, status, timestamp
+      FROM StudentDocumentation
+      WHERE studentID = ? AND status = ?
+      ORDER BY timestamp DESC
+    `;
     const [results] = await pool.query(query, [studentID, status]);
     return results;
-};
-
+  };
+  
 // Obtener un documento por ID
 const getDocumentByID = async (documentID) => {
     const query = 'SELECT file, fileName FROM StudentDocumentation WHERE documentID = ?';
@@ -35,92 +40,84 @@ const countAcceptedDocuments = async (studentID) => {
 // Aprobar un documento
 const approveDocument = async (documentID, userType) => {
     const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ?';
-    const updateQuery = 'UPDATE StudentDocumentation SET status = "Accepted", userType = ? WHERE documentID = ?';
-    const updateUploadedQuery = 'UPDATE StudentUploadedDocuments SET status = "Accepted" WHERE fileName = ? AND studentID = ?';
-    const auditQuery = 'INSERT INTO Audit (table, action, date, userType) VALUES (?, ?, ?, ?)';
-
+    const updateQuery = 'UPDATE StudentDocumentation SET status = "Accepted" WHERE documentID = ?';
+    const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
+  
     const connection = await pool.getConnection();
     try {
-        await connection.beginTransaction();
-
-        const [results] = await connection.query(selectQuery, [documentID]);
-        if (results.length === 0) {
-            throw new Error('Documento no encontrado');
-        }
-
-        await connection.query(updateQuery, [userType, documentID]);
-        await connection.query(updateUploadedQuery, [results[0].fileName, results[0].studentID]);
-        await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
-
-        await connection.commit();
-        return { message: 'Documento aprobado exitosamente' };
+      await connection.beginTransaction();
+  
+      const [results] = await connection.query(selectQuery, [documentID]);
+      if (results.length === 0) throw new Error('Documento no encontrado');
+  
+      await connection.query(updateQuery, [documentID]);
+      await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
+  
+      await connection.commit();
+      return { message: 'Documento aprobado exitosamente' };
     } catch (err) {
-        await connection.rollback();
-        throw err;
+      await connection.rollback();
+      throw err;
     } finally {
-        connection.release();
+      connection.release();
     }
-};
-
+  };
+  
 // Rechazar un documento
 const rejectDocument = async (documentID, userType) => {
     const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ?';
-    const deleteQuery = 'DELETE FROM StudentDocumentation WHERE documentID = ?';
-    const updateUploadedQuery = 'UPDATE StudentUploadedDocuments SET status = "Rejected" WHERE fileName = ? AND studentID = ?';
-    const auditQuery = 'INSERT INTO Audit (table, action, date, userType) VALUES (?, ?, ?, ?)';
-
+    const updateQuery = 'UPDATE StudentDocumentation SET status = "Rejected" WHERE documentID = ?';
+    const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
+  
     const connection = await pool.getConnection();
     try {
-        await connection.beginTransaction();
-
-        const [results] = await connection.query(selectQuery, [documentID]);
-        if (results.length === 0) {
-            throw new Error('Documento no encontrado');
-        }
-
-        await connection.query(deleteQuery, [documentID]);
-        await connection.query(updateUploadedQuery, [results[0].fileName, results[0].studentID]);
-        await connection.query(auditQuery, ['StudentDocumentation', 'DELETE', new Date(), userType]);
-
-        await connection.commit();
-        return { message: 'Documento rechazado exitosamente' };
+      await connection.beginTransaction();
+  
+      const [results] = await connection.query(selectQuery, [documentID]);
+      if (results.length === 0) throw new Error('Documento no encontrado');
+  
+      await connection.query(updateQuery, [documentID]);
+      await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
+  
+      await connection.commit();
+      return { message: 'Documento rechazado exitosamente' };
     } catch (err) {
-        await connection.rollback();
-        throw err;
+      await connection.rollback();
+      throw err;
     } finally {
-        connection.release();
+      connection.release();
     }
-};
+  };
+  
 
 // Eliminar un documento
-const deleteDocument = async (documentID) => {
+const deleteDocument = async (documentID, userType) => {
     const selectQuery = 'SELECT fileName, studentID FROM StudentDocumentation WHERE documentID = ?';
     const deleteQuery = 'DELETE FROM StudentDocumentation WHERE documentID = ?';
-    const updateQuery = 'UPDATE StudentUploadedDocuments SET status = "Deleted" WHERE fileName = ? AND studentID = ?';
-
+    const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
+  
     const connection = await pool.getConnection();
     try {
-        await connection.beginTransaction();
-
-        const [result] = await connection.query(selectQuery, [documentID]);
-        if (result.length === 0) {
-            throw new Error('Documento no encontrado');
-        }
-
-        const { fileName, studentID } = result[0];
-        await connection.query(deleteQuery, [documentID]);
-        await connection.query(updateQuery, [fileName, studentID]);
-
-        await connection.commit();
-        return { message: 'Documento eliminado exitosamente' };
+      await connection.beginTransaction();
+  
+      const [result] = await connection.query(selectQuery, [documentID]);
+      if (result.length === 0) throw new Error('Documento no encontrado');
+  
+      const { fileName, studentID } = result[0];
+  
+      await connection.query(deleteQuery, [documentID]);
+      await connection.query(auditQuery, ['StudentDocumentation', 'DELETE', new Date(), userType]);
+  
+      await connection.commit();
+      return { message: 'Documento eliminado exitosamente' };
     } catch (err) {
-        await connection.rollback();
-        throw err;
+      await connection.rollback();
+      throw err;
     } finally {
-        connection.release();
+      connection.release();
     }
-};
-
+  };
+  
 module.exports = {
   getDocumentsByStudentAndStatus,
   getDocumentByID,

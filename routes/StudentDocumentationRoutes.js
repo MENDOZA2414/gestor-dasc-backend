@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const authMiddleware = require('../middlewares/AuthMiddleware');
 const studentDocumentationController = require('../controllers/StudentDocumentationController');
+
 
 // Obtener documentos por estudiante y estatus
 router.get('/:studentID', studentDocumentationController.getDocumentsByStudentAndStatus);
@@ -12,12 +14,12 @@ router.get('/:id', studentDocumentationController.getDocumentByID);
 router.get('/countAcceptedDocuments/:studentID', studentDocumentationController.countAcceptedDocuments);
 
 // Aprobar un documento
-router.post('/approve', studentDocumentationController.approveDocument);
+router.post('/approve', authMiddleware, studentDocumentationController.approveDocument);
 
 // Rechazar un documento
-router.post('/reject', studentDocumentationController.rejectDocument);
+router.post('/reject', authMiddleware, studentDocumentationController.rejectDocument);
 
 // Eliminar un documento
-router.delete('/:id', studentDocumentationController.deleteDocument);
+router.post('/delete', authMiddleware, studentDocumentationController.deleteDocument);
 
 module.exports = router;

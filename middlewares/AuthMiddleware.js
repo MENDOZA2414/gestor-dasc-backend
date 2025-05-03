@@ -29,7 +29,7 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    req.user = decoded; // Se adjunta el usuario al request
+    req.user = decoded; 
     next();
   } catch (error) {
     const errorMsg =

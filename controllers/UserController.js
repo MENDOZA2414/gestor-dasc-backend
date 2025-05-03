@@ -55,7 +55,7 @@ const loginUserController = async (req, res) => {
         sessionToken
       },
       process.env.JWT_SECRET,
-      { expiresIn: rememberMe ? 6 * 60 : 4 * 60 } // minutos de prueba
+      { expiresIn: rememberMe ? '1d' : '1h' }
     );
 
     // Enviar cookie con JWT
@@ -63,7 +63,7 @@ const loginUserController = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: 'None',
-      maxAge: rememberMe ? 6 * 60 * 1000 : 4 * 60 * 1000 // en milisegundos
+      maxAge: rememberMe ? 1 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
     });
 
     // Respuesta

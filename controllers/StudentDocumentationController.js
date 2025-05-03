@@ -44,18 +44,21 @@ exports.countAcceptedDocuments = async (req, res) => {
 // Aprobar un documento
 exports.approveDocument = async (req, res) => {
     try {
-        const { documentID, userType } = req.body;
-        const result = await StudentDocumentation.approveDocument(documentID, userType);
-        res.status(200).send(result);
+      const { documentID } = req.body;
+      const userType = req.user.userTypeID;
+      const result = await StudentDocumentation.approveDocument(documentID, userType);
+      res.status(200).send(result);
     } catch (err) {
-        res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
+      res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
     }
-};
+  };
+  
 
 // Rechazar un documento
 exports.rejectDocument = async (req, res) => {
     try {
-        const { documentID, userType } = req.body;
+        const { documentID } = req.body;
+        const userType = req.user.userTypeID;
         const result = await StudentDocumentation.rejectDocument(documentID, userType);
         res.status(200).send(result);
     } catch (err) {
@@ -66,10 +69,13 @@ exports.rejectDocument = async (req, res) => {
 // Eliminar un documento
 exports.deleteDocument = async (req, res) => {
     try {
-        const { id } = req.params;
-        const result = await StudentDocumentation.deleteDocument(id);
-        res.status(200).send(result);
+      const { documentID } = req.body;
+      const userType = req.user.userTypeID;
+      const result = await StudentDocumentation.deleteDocument(documentID, userType);
+      res.status(200).send(result);
     } catch (err) {
-        res.status(500).send({ message: 'Error en el servidor: ' + err.message });
+      res.status(500).send({ message: 'Error al eliminar documento', error: err.message });
     }
-};
+  };
+  
+  
