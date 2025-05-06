@@ -29,18 +29,21 @@ const loginUserController = async (req, res) => {
     // Si hay token existente
     if (currentToken && !override) {
       try {
-        // Verificamos si el token aún es válido
         jwt.verify(currentToken, process.env.JWT_SECRET);
-
-        // Si es válido y no hay override, denegar login
-        return res.status(409).send({ message: 'Ya hay una sesión activa para este usuario.' });
+        return res.status(409).send({ code: 'SESSION_ACTIVE', message: 'Sesión activa detectada' });
       } catch (err) {
-        // Si el token ha expirado o es inválido, permitimos continuar
+        // Limpiar sessionToken
+        await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [user.userID]);
       }
     }
 
     // Generar un nuevo sessionToken
-    const sessionToken = uuidv4();
+    const sessionToken = jwt.sign(
+      { userID: user.userID, time: Date.now() },
+      process.env.JWT_SECRET,
+      { expiresIn: rememberMe ? '1d' : '1h' }
+    ); 
+    
 
     // Guardar en la base de datos
     await pool.query('UPDATE User SET sessionToken = ? WHERE userID = ?', [sessionToken, user.userID]);
