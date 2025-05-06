@@ -48,16 +48,15 @@ const validateStudentData = (data) => {
 
     
     // Validar semestre
-    const validSemesters = ['0', '7', '9'];
+    const validSemesters = ['0', '7', '9']; 
     if (!validSemesters.includes(semester.toString())) {
-    throw new Error('El semestre debe ser 0 (egresado), 7 (LATI/LITI) o 9 (otras carreras)');
+      throw new Error('El semestre debe ser 0 (egresado), 7 (LATI/LITI) o 9 (otras carreras)');
     }
-
   
     // Validar número de control
-    if (!/^\d+$/.test(controlNumber) || controlNumber.length !== 8) {
-      throw new Error('El número de control debe ser un número de 8 dígitos');
-    }
+    if (!/^\d{10}$/.test(controlNumber)) {
+      throw new Error('El número de control debe ser un número de 10 dígitos');
+    }    
   };
   
   module.exports = validateStudentData;

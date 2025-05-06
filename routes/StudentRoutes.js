@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/StudentController');
+const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 
 // Ruta para registrar un alumno
-router.post('/register', studentController.registerStudentController);
+router.post('/register', profileUploadMiddleware, studentController.registerStudentController);
 
 // Ruta para contar todos los alumnos
 router.get('/count', studentController.countStudents);

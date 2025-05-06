@@ -2,8 +2,10 @@ const multer = require("multer");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 
+// Almacenamiento en memoria
 const storage = multer.memoryStorage();
 
+// Configuración de multer para aceptar solo ciertos tipos de imágenes
 const uploadProfile = multer({
   storage,
   fileFilter: (req, file, cb) => {
@@ -13,7 +15,7 @@ const uploadProfile = multer({
     }
     cb(null, true);
   }
-}).single("profile");
+}).single("photo"); 
 
 // Middleware para generar UUID y asignar nombre + buffer al req
 const profileUploadMiddleware = (req, res, next) => {
@@ -21,10 +23,15 @@ const profileUploadMiddleware = (req, res, next) => {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
+
+    // Si no hay archivo, permitimos continuar (la foto es opcional)
     if (!req.file) {
-      return res.status(400).json({ error: "No se subió ningún archivo" });
+      req.generatedFileName = null;
+      req.bufferFile = null;
+      return next();
     }
 
+    // Generar nombre único y guardar buffer
     const ext = path.extname(req.file.originalname).toLowerCase();
     const uuid = uuidv4();
     req.generatedFileName = `${uuid}${ext}`;

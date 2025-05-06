@@ -5,15 +5,22 @@ const { registerUser, authenticateUser } = require('../models/User');
 
 // Registrar usuario
 const registerUserController = async (req, res) => {
-  const { email, password, phone, roleID } = req.body;
+  const { email, password, phone, roleID, userTypeID } = req.body;
+
+  if (!email || !password || !phone || !roleID || !userTypeID) {
+    return res.status(400).send({ message: 'Faltan datos requeridos' });
+  }
 
   try {
-    await registerUser(email, password, phone, roleID);
+    const connection = await pool.getConnection();
+    await registerUser(connection, email, password, phone, roleID, userTypeID);
+    connection.release();
     res.status(201).send({ message: 'Usuario registrado con éxito' });
   } catch (error) {
     res.status(500).send({ message: 'Error al registrar el usuario', error: error.message });
   }
 };
+
 
 // Iniciar sesión
 const loginUserController = async (req, res) => {

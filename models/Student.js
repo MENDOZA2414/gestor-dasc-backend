@@ -4,7 +4,10 @@ const validateStudentData = require('../utils/ValidateStudentData');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const path = require("path");
 const fs = require("fs");
+const uploadToFTP = require('../utils/FtpUploader'); // ← Faltaba esto
 
+
+// Registrar un nuevo alumno
 const registerStudent = async (studentData) => {
   const connection = await pool.getConnection();
   try {
@@ -18,7 +21,7 @@ const registerStudent = async (studentData) => {
       firstName, firstLastName, secondLastName,
       dateOfBirth, career, semester, shift,
       controlNumber, studentStatus, status,
-      internalAssessorID, photo
+      internalAssessorID
     } = studentData;
 
     // Validar duplicado
@@ -39,16 +42,11 @@ const registerStudent = async (studentData) => {
       throw new Error('El asesor interno no existe');
     }
 
-    // ✅ Validar que la foto exista ANTES de registrar
-    if (photo) {
-      const localPhotoPath = path.join("uploads", photo);
-      if (!fs.existsSync(localPhotoPath)) {
-        throw new Error(`La foto de perfil "${photo}" no existe en /uploads`);
-      }
-    }
-
     // Registrar usuario
-    const userID = await registerUser(connection, email, password, phone, 3);
+    const userID = await registerUser(connection, email, password, phone, 3, 2);
+
+    const generatedFileName = studentData.profilePhotoName || null;
+    const bufferFile = studentData.profilePhotoBuffer || null;
 
     // Insertar alumno
     const insertQuery = `
@@ -58,7 +56,8 @@ const registerStudent = async (studentData) => {
     await connection.query(insertQuery, [
       controlNumber, userID, firstName, firstLastName, secondLastName,
       dateOfBirth, career, semester, shift,
-      studentStatus, status, internalAssessorID, photo
+      studentStatus, status, internalAssessorID,
+      generatedFileName || null // ← insertamos el nombre del archivo
     ]);
 
     const [[{ studentID }]] = await connection.query("SELECT LAST_INSERT_ID() AS studentID");
@@ -69,20 +68,27 @@ const registerStudent = async (studentData) => {
     await createFtpStructure("student", studentID);
 
     // Subir foto si existe
-    if (photo) {
-      const localPhotoPath = path.join("uploads", photo);
-      const safeFileName = photo
+    if (bufferFile && generatedFileName) {
+      const safeFileName = generatedFileName
         .replace(/\s+/g, "_")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w.-]/g, "");
-      const ftpPhotoPath = `/practices/students/student_${studentID}/profile/${safeFileName}`;
+      
+      const ftpPhotoPath = `/images/profiles/${safeFileName}`;
+      const photoUrl = `https://uabcs.online/practicas${ftpPhotoPath}`;
+      
       try {
-        await uploadToFTP(localPhotoPath, ftpPhotoPath, { overwrite: true });
+        await uploadToFTP(bufferFile, ftpPhotoPath, {
+          overwrite: true
+        });
+
+        await connection.query(`UPDATE Student SET photo = ? WHERE studentID = ?`, [photoUrl, studentID]);
       } catch (err) {
         console.warn("Alumno registrado, pero falló la subida de la foto:", err.message);
       }
     }
+
 
     return { message: 'Alumno registrado exitosamente' };
 
@@ -93,6 +99,7 @@ const registerStudent = async (studentData) => {
     connection.release();
   }
 };
+
 
 // Obtener un alumno por su controlNumber
 const getStudentByControlNumber = async (controlNumber) => {
