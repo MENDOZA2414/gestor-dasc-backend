@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { deleteFileFromFTP, renameFileOnFTP } = require('../utils/FtpUtils');
 
 // Guardar un nuevo documento (subido por alumno)
 const saveDocument = async (studentID, fileName, filePath, documentType, status) => {
@@ -6,10 +7,8 @@ const saveDocument = async (studentID, fileName, filePath, documentType, status)
       INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp)
       VALUES (?, ?, ?, ?, ?, NOW())
     `;
-
     await pool.query(query, [studentID, fileName, filePath, documentType, status]);
-  };
-  
+};
 
 // Obtener documentos por alumno y estatus
 const getDocumentsByStudentAndStatus = async (studentID, status) => {
@@ -21,8 +20,8 @@ const getDocumentsByStudentAndStatus = async (studentID, status) => {
     `;
     const [results] = await pool.query(query, [studentID, status]);
     return results;
-  };
-  
+};
+
 // Obtener un documento por ID
 const getDocumentByID = async (documentID) => {
     const query = 'SELECT file, fileName FROM StudentDocumentation WHERE documentID = ?';
@@ -40,91 +39,96 @@ const countAcceptedDocuments = async (studentID) => {
 // Aprobar un documento
 const approveDocument = async (documentID, userType) => {
     const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ?';
-    const updateQuery = 'UPDATE StudentDocumentation SET status = "Accepted" WHERE documentID = ?';
+    const updateQuery = `
+    UPDATE StudentDocumentation 
+    SET status = "Accepted", fileName = ?, filePath = ? WHERE documentID = ?`;      
     const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
-  
+
     const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-  
-      const [results] = await connection.query(selectQuery, [documentID]);
-      if (results.length === 0) throw new Error('Documento no encontrado');
-  
-      await connection.query(updateQuery, [documentID]);
-      await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
-  
-      await connection.commit();
-      return { message: 'Documento aprobado exitosamente' };
+        await connection.beginTransaction();
+
+        const [results] = await connection.query(selectQuery, [documentID]);
+        if (results.length === 0) throw new Error('Documento no encontrado');
+
+        const doc = results[0];
+        const newFileName = doc.fileName.replace('Pending', 'Accepted');
+        const newPath = doc.filePath.replace(doc.fileName, newFileName);
+
+        await renameFileOnFTP(doc.filePath.replace('https://uabcs.online', ''), newPath.replace('https://uabcs.online', ''));
+        await connection.query(updateQuery, [newFileName, newPath, documentID]);
+        await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
+
+        await connection.commit();
+        return { message: 'Documento aprobado exitosamente' };
     } catch (err) {
-      await connection.rollback();
-      throw err;
+        await connection.rollback();
+        throw err;
     } finally {
-      connection.release();
+        connection.release();
     }
-  };
-  
+};
+
 // Rechazar un documento
 const rejectDocument = async (documentID, userType) => {
     const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ?';
-    const updateQuery = 'UPDATE StudentDocumentation SET status = "Rejected" WHERE documentID = ?';
+    const deleteQuery = 'DELETE FROM StudentDocumentation WHERE documentID = ?';
     const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
-  
+
     const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-  
-      const [results] = await connection.query(selectQuery, [documentID]);
-      if (results.length === 0) throw new Error('Documento no encontrado');
-  
-      await connection.query(updateQuery, [documentID]);
-      await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
-  
-      await connection.commit();
-      return { message: 'Documento rechazado exitosamente' };
+        await connection.beginTransaction();
+
+        const [results] = await connection.query(selectQuery, [documentID]);
+        if (results.length === 0) throw new Error('Documento no encontrado');
+
+        await deleteFileFromFTP(results[0].filePath.replace('https://uabcs.online', ''));
+        await connection.query(deleteQuery, [documentID]);
+        await connection.query(auditQuery, ['StudentDocumentation', 'DELETE', new Date(), userType]);
+
+        await connection.commit();
+        return { message: 'Documento rechazado exitosamente' };
     } catch (err) {
-      await connection.rollback();
-      throw err;
+        await connection.rollback();
+        throw err;
     } finally {
-      connection.release();
+        connection.release();
     }
-  };
-  
+};
 
 // Eliminar un documento
 const deleteDocument = async (documentID, userType) => {
-    const selectQuery = 'SELECT fileName, studentID FROM StudentDocumentation WHERE documentID = ?';
+    const selectQuery = 'SELECT filePath FROM StudentDocumentation WHERE documentID = ?';
     const deleteQuery = 'DELETE FROM StudentDocumentation WHERE documentID = ?';
     const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
-  
+
     const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-  
-      const [result] = await connection.query(selectQuery, [documentID]);
-      if (result.length === 0) throw new Error('Documento no encontrado');
-  
-      const { fileName, studentID } = result[0];
-  
-      await connection.query(deleteQuery, [documentID]);
-      await connection.query(auditQuery, ['StudentDocumentation', 'DELETE', new Date(), userType]);
-  
-      await connection.commit();
-      return { message: 'Documento eliminado exitosamente' };
+        await connection.beginTransaction();
+
+        const [result] = await connection.query(selectQuery, [documentID]);
+        if (result.length === 0) throw new Error('Documento no encontrado');
+
+        await deleteFileFromFTP(result[0].filePath.replace('https://uabcs.online', ''));
+        await connection.query(deleteQuery, [documentID]);
+        await connection.query(auditQuery, ['StudentDocumentation', 'DELETE', new Date(), userType]);
+
+        await connection.commit();
+        return { message: 'Documento eliminado exitosamente' };
     } catch (err) {
-      await connection.rollback();
-      throw err;
+        await connection.rollback();
+        throw err;
     } finally {
-      connection.release();
+        connection.release();
     }
-  };
-  
-module.exports = {
-  getDocumentsByStudentAndStatus,
-  getDocumentByID,
-  countAcceptedDocuments,
-  approveDocument,
-  rejectDocument,
-  deleteDocument,
-  saveDocument 
 };
 
+module.exports = {
+    getDocumentsByStudentAndStatus,
+    getDocumentByID,
+    countAcceptedDocuments,
+    approveDocument,
+    rejectDocument,
+    deleteDocument,
+    saveDocument
+};
