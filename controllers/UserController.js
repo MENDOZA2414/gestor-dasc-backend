@@ -76,10 +76,20 @@ const loginUserController = async (req, res) => {
       maxAge: rememberMe ? 1 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
     });
 
+    // Obtener el controlNumber si es un estudiante
+    let controlNumber = null;
+
+    if (user.userTypeID === 2) {
+      const [result] = await pool.query('SELECT controlNumber FROM Student WHERE userID = ?', [user.userID]);
+      controlNumber = result[0]?.controlNumber || null;
+    }
+
     // Respuesta
     res.status(200).send({
       message: 'Login exitoso',
       userTypeID: user.userTypeID,
+      userID: user.userID,
+      controlNumber,
       token
     });
 
