@@ -82,17 +82,20 @@ exports.rejectApplication = async (req, res) => {
 };
   
 // Aceptar una postulación:
-// Registra la práctica profesional, elimina todas las postulaciones del estudiante y elimina la vacante
 exports.acceptApplication = async (req, res) => {
-    try {
-      const { applicationID } = req.body;
-      const result = await StudentApplication.acceptApplication(applicationID);
-      res.status(201).json(result);
-    } catch (error) {
-      console.error('Error al aceptar postulación:', error.message);
-      res.status(500).json({ message: 'Error en el servidor al registrar la práctica profesional', error: error.message });
-    }
+  try {
+    const { applicationID } = req.body;
+    const result = await StudentApplication.acceptApplication(applicationID);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error al aceptar postulación:', error.message);
+    res.status(500).json({ 
+      message: 'Error en el servidor al registrar la práctica profesional',
+      error: error.message
+    });
+  }
 };
+
 
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
@@ -151,5 +154,22 @@ exports.registerApplication = async (req, res) => {
       message: 'Error en el servidor al registrar la postulación',
       error: error.message
     });
+  }
+};
+
+// Obtener todas las postulaciones recibidas por una empresa (entidad receptora)
+exports.getApplicationsByCompanyID = async (req, res) => {
+  try {
+    const companyID = req.params.companyID;
+    const applications = await StudentApplication.getApplicationsByCompanyID(companyID);
+
+    if (applications.length === 0) {
+      return res.status(404).json({ message: 'No hay postulaciones registradas para esta empresa' });
+    }
+
+    res.status(200).json(applications);
+  } catch (error) {
+    console.error('Error al obtener postulaciones por empresa:', error.message);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
   }
 };

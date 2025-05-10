@@ -26,5 +26,7 @@ router.post('/accept', studentApplicationController.acceptApplication);
 // Ruta para registrar una nueva postulación con subida de archivo a FTP
 router.post('/register', upload.single('file'), studentApplicationController.registerApplication);
 
+// Obtener todas las postulaciones recibidas por una entidad
+router.get('/company/:companyID', studentApplicationController.getApplicationsByCompanyID);
 
 module.exports = router;
