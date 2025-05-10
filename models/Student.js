@@ -158,6 +158,17 @@ const getStudentsByStatusAndAssessorID = async (status, internalAssessorID) => {
     const [results] = await pool.query(query, params);
     return results;
 };
+// Obtener todos los alumnos por estatus del estudiante
+const getStudentsByStudentStatus = async (studentStatus) => {
+  const query = `
+    SELECT studentID, controlNumber, firstName, firstLastName, secondLastName, career, semester, shift
+    FROM Student
+    WHERE studentStatus = ?
+    ORDER BY firstName
+  `;
+  const [results] = await pool.query(query, [studentStatus]);
+  return results;
+};
 
 // Eliminar un alumno por su controlNumber
 const deleteStudentByControlNumber = async (controlNumber) => {
@@ -192,6 +203,7 @@ module.exports = {
     getStudentsByInternalAssessorID,
     getAllStudents,
     getStudentsByStatusAndAssessorID,
+    getStudentsByStudentStatus,
     countStudents,
     deleteStudentByControlNumber
 };

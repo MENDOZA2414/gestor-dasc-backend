@@ -115,6 +115,23 @@ const getStudentsByStatusAndAssessorID = async (req, res) => {
     }
 };
 
+// Obtener todos los alumnos por estatus del estudiante
+const getStudentsByStudentStatus = async (req, res) => {
+    try {
+      const { studentStatus } = req.query;
+      if (!studentStatus) {
+        return res.status(400).json({ message: "El parámetro 'studentStatus' es obligatorio" });
+      }
+  
+      const students = await Student.getStudentsByStudentStatus(studentStatus);
+      res.status(200).json(students);
+    } catch (error) {
+      console.error('Error al obtener estudiantes por studentStatus:', error.message);
+      res.status(500).json({ message: 'Error en el servidor' });
+    }
+  };
+  
+
 // Eliminar un alumno por controlNumber
 const deleteStudentByControlNumber = async (req, res) => {
     try {
@@ -134,6 +151,7 @@ module.exports = {
     getStudentsByInternalAssessorID,
     getAllStudents,
     getStudentsByStatusAndAssessorID,
+    getStudentsByStudentStatus,
     countStudents,
     deleteStudentByControlNumber
 };

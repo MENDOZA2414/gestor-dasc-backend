@@ -18,6 +18,9 @@ router.get('/assessor/:internalAssessorID', studentController.getStudentsByInter
 // Ruta para obtener alumnos por estatus y ID de asesor interno
 router.get('/', studentController.getStudentsByStatusAndAssessorID);
 
+// Ruta para obtener un alumnos por estatus
+router.get('/by-student-status', studentController.getStudentsByStudentStatus);
+
 // Ruta para obtener un alumno por controlNumber
 router.get('/:controlNumber', studentController.getStudentByControlNumber);
 
