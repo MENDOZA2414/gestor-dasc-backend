@@ -131,7 +131,20 @@ const getStudentsByStudentStatus = async (req, res) => {
     }
   };
   
-
+// Actualizar datos de un alumno por controlNumber
+const updateStudentController = async (req, res) => {
+    try {
+      const controlNumber = req.params.controlNumber;
+      const updateData = req.body;
+  
+      const result = await Student.updateStudent(controlNumber, updateData);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error al actualizar el alumno:', error.message);
+      res.status(500).json({ message: 'Error al actualizar el alumno', error: error.message });
+    }
+  };
+  
 // Eliminar un alumno por controlNumber
 const deleteStudentByControlNumber = async (req, res) => {
     try {
@@ -153,5 +166,6 @@ module.exports = {
     getStudentsByStatusAndAssessorID,
     getStudentsByStudentStatus,
     countStudents,
+    updateStudentController,
     deleteStudentByControlNumber
 };

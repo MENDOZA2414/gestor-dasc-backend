@@ -4,7 +4,7 @@ const validateStudentData = require('../utils/ValidateStudentData');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const path = require("path");
 const fs = require("fs");
-const uploadToFTP = require('../utils/FtpUploader'); // ← Faltaba esto
+const uploadToFTP = require('../utils/FtpUploader'); 
 
 
 // Registrar un nuevo alumno
@@ -74,10 +74,10 @@ const registerStudent = async (studentData) => {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w.-]/g, "");
-      
+
       const ftpPhotoPath = `/images/profiles/${safeFileName}`;
       const photoUrl = `https://uabcs.online/practicas${ftpPhotoPath}`;
-      
+
       try {
         await uploadToFTP(bufferFile, ftpPhotoPath, {
           overwrite: true
@@ -103,7 +103,7 @@ const registerStudent = async (studentData) => {
 
 // Obtener un alumno por su controlNumber
 const getStudentByControlNumber = async (controlNumber) => {
-    const query = 'SELECT * FROM Student WHERE controlNumber = ?';
+    const query = 'SELECT * FROM Student WHERE controlNumber = ? AND recordStatus = "Activo"';
     const [results] = await pool.query(query, [controlNumber]);
     if (results.length > 0) {
         return results[0];
@@ -114,7 +114,7 @@ const getStudentByControlNumber = async (controlNumber) => {
 
 // Obtener alumnos asignados a un asesor interno
 const getStudentsByInternalAssessorID = async (internalAssessorID) => {
-    const query = 'SELECT controlNumber, firstName, shift, career FROM Student WHERE internalAssessorID = ?';
+    const query = 'SELECT controlNumber, firstName, shift, career FROM Student WHERE internalAssessorID = ? AND recordStatus = "Activo"';
     const [results] = await pool.query(query, [internalAssessorID]);
     return results;
 };
@@ -124,7 +124,7 @@ const getAllStudents = async (internalAssessorID) => {
     const query = `
         SELECT controlNumber, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS name
         FROM Student
-        WHERE internalAssessorID = ?
+        WHERE internalAssessorID = ? AND recordStatus = "Activo"
         ORDER BY firstName;
     `;
     const [results] = await pool.query(query, [internalAssessorID]);
@@ -133,14 +133,14 @@ const getAllStudents = async (internalAssessorID) => {
 
 // Contar alumnos en el sistema
 const countStudents = async () => {
-    const query = 'SELECT COUNT(*) as count FROM Student';
+    const query = 'SELECT COUNT(*) as count FROM Student WHERE recordStatus = "Activo"';
     const [results] = await pool.query(query);
     return results[0].count;
 };
 
 // Obtener alumnos por estatus y asesor interno ID
 const getStudentsByStatusAndAssessorID = async (status, internalAssessorID) => {
-    let query = 'SELECT studentID, status, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS name FROM Student WHERE 1=1';
+    let query = 'SELECT studentID, status, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS name FROM Student WHERE recordStatus = "Activo"';
     const params = [];
 
     if (status) {
@@ -158,43 +158,80 @@ const getStudentsByStatusAndAssessorID = async (status, internalAssessorID) => {
     const [results] = await pool.query(query, params);
     return results;
 };
+
 // Obtener todos los alumnos por estatus del estudiante
 const getStudentsByStudentStatus = async (studentStatus) => {
   const query = `
     SELECT studentID, controlNumber, firstName, firstLastName, secondLastName, career, semester, shift
     FROM Student
-    WHERE studentStatus = ?
+    WHERE studentStatus = ? AND recordStatus = "Activo"
     ORDER BY firstName
   `;
   const [results] = await pool.query(query, [studentStatus]);
   return results;
 };
 
-// Eliminar un alumno por su controlNumber
+// Eliminar lógicamente un alumno y su usuario vinculado
 const deleteStudentByControlNumber = async (controlNumber) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        const verifyStatusQuery = 'SELECT status FROM Student WHERE controlNumber = ?';
-        const deleteStudentQuery = 'DELETE FROM Student WHERE controlNumber = ?';
-        
-        const [result] = await connection.query(verifyStatusQuery, [controlNumber]);
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-        if (result.length > 0 && result[0].status === 'Accepted') {
-            await connection.query(deleteStudentQuery, [controlNumber]);
-            await connection.commit();
-            return { message: 'Alumno eliminado con éxito' };
-        } else {
-            await connection.rollback();
-            throw new Error('Solo se pueden eliminar alumnos aceptados');
-        }
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
-    }
+    const [rows] = await connection.query(
+      'SELECT studentID, userID FROM Student WHERE controlNumber = ? AND recordStatus = "Activo"',
+      [controlNumber]
+    );
+
+    if (rows.length === 0) throw new Error('El alumno no existe o ya fue eliminado');
+
+    const { userID } = rows[0];
+
+    await connection.query(
+      'UPDATE Student SET recordStatus = "Eliminado" WHERE controlNumber = ?',
+      [controlNumber]
+    );
+
+    await connection.query(
+      'UPDATE User SET recordStatus = "Eliminado" WHERE userID = ?',
+      [userID]
+    );
+
+    await connection.commit();
+    return { message: 'Alumno y usuario marcados como eliminados' };
+
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// Actualizar datos de un alumno si está activo
+const updateStudent = async (controlNumber, updateData) => {
+  const {
+    firstName, firstLastName, secondLastName,
+    dateOfBirth, career, semester, shift,
+    studentStatus, status, internalAssessorID
+  } = updateData;
+
+  const query = `
+    UPDATE Student
+    SET firstName = ?, firstLastName = ?, secondLastName = ?, dateOfBirth = ?, career = ?, semester = ?, shift = ?, studentStatus = ?, status = ?, internalAssessorID = ?
+    WHERE controlNumber = ? AND recordStatus = "Activo"
+  `;
+  const [result] = await pool.query(query, [
+    firstName, firstLastName, secondLastName,
+    dateOfBirth, career, semester, shift,
+    studentStatus, status, internalAssessorID,
+    controlNumber
+  ]);
+
+  if (result.affectedRows === 0) {
+    throw new Error('No se pudo actualizar el alumno o ya fue eliminado');
+  }
+
+  return { message: 'Alumno actualizado correctamente' };
 };
 
 module.exports = {
@@ -205,5 +242,6 @@ module.exports = {
     getStudentsByStatusAndAssessorID,
     getStudentsByStudentStatus,
     countStudents,
-    deleteStudentByControlNumber
+    deleteStudentByControlNumber,
+    updateStudent
 };

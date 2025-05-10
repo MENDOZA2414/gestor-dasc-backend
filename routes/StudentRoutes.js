@@ -27,4 +27,7 @@ router.get('/:controlNumber', studentController.getStudentByControlNumber);
 // Ruta para eliminar un alumno por controlNumber
 router.delete('/:controlNumber', studentController.deleteStudentByControlNumber);
 
+// Ruta para actualizar los datos de un alumno por controlNumber
+router.put('/:controlNumber', studentController.updateStudentController);
+
 module.exports = router;
