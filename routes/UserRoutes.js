@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { registerUserController, loginUserController, logoutUserController } = require('../controllers/UserController');
 const { uploadProfilePhoto } = require('../controllers/ProfileController');
 const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
+const {
+    registerUserController,
+    loginUserController,
+    logoutUserController,
+    getUserByIDController,
+    updateUserController,
+    deleteUserController
+} = require('../controllers/UserController');
 
 // Ruta para registrar un nuevo usuario (pública)
 router.post('/register', registerUserController);
@@ -21,5 +28,14 @@ router.post('/upload-profile-photo', authMiddleware, uploadProfile, uploadProfil
 router.get('/protected', authMiddleware, (req, res) => {
     res.send({ message: 'Acceso autorizado, usuario autenticado', user: req.user });
 });
+
+// Obtener usuario por ID (protegida)
+router.get('/:userID', authMiddleware, getUserByIDController);
+
+// Actualizar usuario por ID (protegida)
+router.put('/:userID', authMiddleware, updateUserController);
+
+// Eliminar lógicamente un usuario por ID (protegida)
+router.delete('/:userID', authMiddleware, deleteUserController);
 
 module.exports = router;

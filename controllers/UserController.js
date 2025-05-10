@@ -21,7 +21,6 @@ const registerUserController = async (req, res) => {
   }
 };
 
-
 // Iniciar sesión
 const loginUserController = async (req, res) => {
   const { email, password, rememberMe, override = false } = req.body;
@@ -123,8 +122,48 @@ const logoutUserController = async (req, res) => {
   res.status(200).send({ message: 'Sesión cerrada correctamente' });
 };
 
+// Obtener usuario por ID (si está activo)
+const getUserByIDController = async (req, res) => {
+  const { userID } = req.params;
+
+  try {
+    const user = await getUserByID(userID);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(404).send({ message: 'Usuario no encontrado', error: error.message });
+  }
+};
+
+// Actualizar email y teléfono de un usuario
+const updateUserController = async (req, res) => {
+  const { userID } = req.params;
+  const updateData = req.body;
+
+  try {
+    const result = await updateUser(userID, updateData);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).send({ message: 'Error al actualizar usuario', error: error.message });
+  }
+};
+
+// Eliminar lógicamente un usuario
+const deleteUserController = async (req, res) => {
+  const { userID } = req.params;
+
+  try {
+    const result = await deleteUser(userID);
+    res.status(200).send(result);
+  } catch (error) {
+    res.status(500).send({ message: 'Error al eliminar el usuario', error: error.message });
+  }
+};
+
 module.exports = {
   registerUserController,
   loginUserController,
-  logoutUserController
+  logoutUserController,
+  getUserByIDController,
+  updateUserController,
+  deleteUserController
 };

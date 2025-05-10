@@ -67,4 +67,66 @@ const authenticateUser = async (email, password) => {
     };
 };
 
-module.exports = { registerUser, authenticateUser };
+// Obtener usuarios activos (para listar, si lo necesitas)
+const getActiveUsers = async () => {
+const query = `SELECT * FROM User WHERE recordStatus = 'Activo'`;
+const [results] = await pool.query(query);
+return results;
+};
+    
+// Obtener un usuario por su ID, solo si está activo
+const getUserByID = async (userID) => {
+    const query = `SELECT * FROM User WHERE userID = ? AND recordStatus = 'Activo'`;
+    const [results] = await pool.query(query, [userID]);
+    
+    if (results.length === 0) {
+        throw new Error('Usuario no encontrado o eliminado');
+    }
+    
+    return results[0];
+};
+
+// Actualizar email y teléfono de un usuario si está activo
+const updateUser = async (userID, updateData) => {
+    const { email, phone } = updateData;
+    
+    // Validaciones básicas
+    if (!email || !phone) {
+        throw new Error('Faltan campos obligatorios');
+    }
+    
+    const query = `
+        UPDATE User
+        SET email = ?, phone = ?
+        WHERE userID = ? AND recordStatus = 'Activo'
+    `;
+    
+    const [result] = await pool.query(query, [email, phone, userID]);
+    
+    if (result.affectedRows === 0) {
+        throw new Error('No se pudo actualizar el usuario o está eliminado');
+    }
+    
+    return { message: 'Usuario actualizado correctamente' };
+};
+    
+// Eliminar lógicamente un usuario (soft delete)
+const deleteUser = async (userID) => {
+    const query = `UPDATE User SET recordStatus = 'Eliminado' WHERE userID = ?`;
+    const [result] = await pool.query(query, [userID]);
+  
+    if (result.affectedRows === 0) {
+      throw new Error('No se pudo eliminar el usuario o no existe');
+    }
+  
+    return { message: 'Usuario marcado como eliminado' };
+};
+
+module.exports = {
+    registerUser,
+    authenticateUser,
+    getActiveUsers,
+    getUserByID,
+    updateUser,
+    deleteUser
+};
