@@ -49,7 +49,7 @@ const registerCompany = async (companyData) => {
 
 // Busca una entidad receptora por su ID.
 const getCompanyByID = async (companyID) => {
-    const query = 'SELECT * FROM Company WHERE companyID = ?';
+    const query = 'SELECT * FROM Company WHERE companyID = ? AND recordStatus = "Activo"';
     const [results] = await pool.query(query, [companyID]);
 
     if (results.length === 0) {
@@ -63,6 +63,7 @@ const getAllCompanies = async () => {
     const query = `
         SELECT companyID, companyName, photo 
         FROM Company
+        WHERE recordStatus = "Activo"
         ORDER BY companyName
     `;
     const [results] = await pool.query(query);
@@ -74,26 +75,81 @@ const getCompaniesByStatus = async (status) => {
     const query = `
         SELECT companyID, status, companyName, photo 
         FROM Company 
-        WHERE status = ? OR (status IS NULL OR status = "")
+        WHERE (status = ? OR status IS NULL OR status = '') AND recordStatus = "Activo"
         ORDER BY companyName
     `;
     const [results] = await pool.query(query, [status]);
     return results;
 };
 
-// Elimina una entidad receptora según su ID.
+// Elimina lógicamente una entidad receptora y su usuario vinculado.
 const deleteCompany = async (companyID) => {
-    const checkStatusQuery = 'SELECT companyStatus FROM Company WHERE companyID = ?';
-    const deleteQuery = 'DELETE FROM Company WHERE companyID = ?';
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
 
-    const [result] = await pool.query(checkStatusQuery, [companyID]);
+        const [rows] = await connection.query(
+            'SELECT userID, companyStatus FROM Company WHERE companyID = ? AND recordStatus = "Activo"',
+            [companyID]
+        );
 
-    if (result.length === 0 || result[0].companyStatus !== 'Activo') {
-        throw new Error('Solo se pueden eliminar entidades activas');
+        if (rows.length === 0 || rows[0].companyStatus !== 'Activo') {
+            throw new Error('Solo se pueden eliminar entidades activas');
+        }
+
+        const { userID } = rows[0];
+
+        await connection.query(
+            'UPDATE Company SET recordStatus = "Eliminado" WHERE companyID = ?',
+            [companyID]
+        );
+
+        await connection.query(
+            'UPDATE User SET recordStatus = "Eliminado" WHERE userID = ?',
+            [userID]
+        );
+
+        await connection.commit();
+        return { message: 'Entidad receptora marcada como eliminada' };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
+// Actualiza los datos de una entidad receptora por su ID.
+const updateCompany = async (companyID, updateData) => {
+    const {
+        rfc, fiscalName, companyName, address, externalNumber,
+        interiorNumber, suburb, city, state, zipCode,
+        companyPhone, category, areaID, website,
+        companyStatus, status
+    } = updateData;
+
+    const query = `
+        UPDATE Company SET
+            rfc = ?, fiscalName = ?, companyName = ?, address = ?, externalNumber = ?,
+            interiorNumber = ?, suburb = ?, city = ?, state = ?, zipCode = ?,
+            companyPhone = ?, category = ?, areaID = ?, website = ?,
+            companyStatus = ?, status = ?
+        WHERE companyID = ? AND recordStatus = "Activo"
+    `;
+
+    const [result] = await pool.query(query, [
+        rfc, fiscalName, companyName, address, externalNumber,
+        interiorNumber, suburb, city, state, zipCode,
+        companyPhone, category, areaID, website,
+        companyStatus, status,
+        companyID
+    ]);
+
+    if (result.affectedRows === 0) {
+        throw new Error('No se pudo actualizar la entidad o ya fue eliminada');
     }
 
-    await pool.query(deleteQuery, [companyID]);
-    return { message: 'Entidad receptora eliminada exitosamente' };
+    return { message: 'Entidad receptora actualizada correctamente' };
 };
 
 module.exports = {
@@ -101,5 +157,6 @@ module.exports = {
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,
-    deleteCompany
+    deleteCompany,
+    updateCompany
 };

@@ -52,7 +52,7 @@ const registerCompany = async (req, res) => {
     }
 };
 
-// Eliminar una entidad receptora por ID
+// Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {
     try {
         const companyID = req.params.companyID;
@@ -64,11 +64,25 @@ const deleteCompany = async (req, res) => {
     }
 };
 
+// Actualizar una entidad receptora por ID
+const updateCompany = async (req, res) => {
+    try {
+        const companyID = req.params.companyID;
+        const updateData = req.body;
+        const result = await Company.updateCompany(companyID, updateData);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error al actualizar entidad:', error.message);
+        res.status(500).json({ message: 'No se pudo actualizar la entidad.', error: error.message });
+    }
+};
+
 // Exportar las funciones del controlador
 module.exports = {
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,
     registerCompany,
-    deleteCompany
+    deleteCompany,
+    updateCompany
 };

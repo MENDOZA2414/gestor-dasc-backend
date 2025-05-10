@@ -19,4 +19,7 @@ router.post('/register', companyController.registerCompany);
 // Eliminar una entidad receptora por ID.
 router.delete('/:companyID', companyController.deleteCompany);
 
+// Actualizar los datos de una entidad receptora por ID.
+router.put('/:companyID', companyController.updateCompany);
+
 module.exports = router;
