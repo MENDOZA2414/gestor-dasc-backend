@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const studentApplicationController = require('../controllers/StudentApplicationController');
+const multer = require('multer');
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Ruta para obtener aplicaciones por vacante ID
 router.get('/position/:positionID', studentApplicationController.getApplicationsByPositionID);
 
-// Ruta para obtener una carta de presentación por ID de postulación
+// Ruta para obtener nombre y URL de la carta de presentación por ID de postulación
 router.get('/cover-letter/:id', studentApplicationController.getCoverLetterByID);
 
 // Ruta para verificar si un alumno ya ha aplicado a una vacante
@@ -19,5 +22,9 @@ router.post('/reject', studentApplicationController.rejectApplication);
 
 // Ruta para aceptar una postulación
 router.post('/accept', studentApplicationController.acceptApplication);
+
+// Ruta para registrar una nueva postulación con subida de archivo a FTP
+router.post('/register', upload.single('file'), studentApplicationController.registerApplication);
+
 
 module.exports = router;
