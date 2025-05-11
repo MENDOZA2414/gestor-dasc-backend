@@ -10,7 +10,7 @@ exports.getApplicationsByPositionID = async (req, res) => {
     try {
       const positionID = req.params.positionID;
       const applications = await StudentApplication.getApplicationsByPositionID(positionID);
-  
+
       if (applications.length > 0) {
         res.status(200).json(applications);
       } else {
@@ -20,14 +20,14 @@ exports.getApplicationsByPositionID = async (req, res) => {
       console.error('Error en la consulta de postulaciones:', error.message);
       res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
-  };
-  
+};
+
 // Obtener el nombre y la URL de la carta de presentación por ID de postulación
 exports.getCoverLetterByID = async (req, res) => {
     try {
       const applicationID = req.params.id;
       const data = await StudentApplication.getCoverLetterByID(applicationID);
-  
+
       if (data) {
         res.status(200).json({
           fileName: data.coverLetterFileName,
@@ -40,7 +40,7 @@ exports.getCoverLetterByID = async (req, res) => {
       res.status(500).json({ message: 'Error en el servidor: ' + error.message });
     }
 };
-  
+
 // Verificar si un estudiante ya se ha postulado a una vacante específica
 exports.verifyStudentApplication = async (req, res) => {
     try {
@@ -52,7 +52,7 @@ exports.verifyStudentApplication = async (req, res) => {
       res.status(500).json({ error: 'Error verificando postulación' });
     }
 };
-  
+
 // Obtener todas las postulaciones realizadas por un estudiante
 exports.getApplicationsByStudentID = async (req, res) => {
     try {
@@ -65,24 +65,24 @@ exports.getApplicationsByStudentID = async (req, res) => {
     }
 };
 
-// Rechazar (eliminar) una postulación por ID
+// Rechazar (eliminar lógicamente) una postulación por ID
 exports.rejectApplication = async (req, res) => {
     try {
       const { applicationID } = req.body;
-      const deleted = await StudentApplication.rejectApplication(applicationID);
-  
-      if (!deleted) {
+      const result = await StudentApplication.rejectApplication(applicationID);
+
+      if (!result) {
         res.status(404).json({ message: 'No se encontró la postulación' });
       } else {
-        res.status(200).json({ message: 'Postulación eliminada con éxito' });
+        res.status(200).json({ message: 'Postulación marcada como eliminada' });
       }
     } catch (error) {
       console.error('Error al eliminar la postulación:', error.message);
       res.status(500).json({ message: 'Error en el servidor al eliminar la postulación', error: error.message });
     }
 };
-  
-// Aceptar una postulación:
+
+// Aceptar una postulación
 exports.acceptApplication = async (req, res) => {
   try {
     const { applicationID } = req.body;
@@ -97,7 +97,6 @@ exports.acceptApplication = async (req, res) => {
   }
 };
 
-
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
   try {
@@ -108,22 +107,15 @@ exports.registerApplication = async (req, res) => {
       return res.status(400).json({ message: 'Faltan datos: studentID, practicePositionID o archivo' });
     }
 
-    // Buscar el userID asociado al studentID
-    const [[studentRow]] = await db.query(
-      'SELECT userID FROM Student WHERE studentID = ?',
-      [studentID]
-    );
+    const [[studentRow]] = await db.query('SELECT userID FROM Student WHERE studentID = ?', [studentID]);
 
     if (!studentRow) {
       return res.status(404).json({ message: 'No se encontró el estudiante' });
     }
 
     const userID = studentRow.userID;
-
-    // Crear carpeta si no existe
     await createFtpStructure('student', userID);
 
-    // Sanitizar nombre original del archivo
     const originalName = file.originalname
       .replace(/\s+/g, '_')
       .normalize('NFD')
@@ -134,10 +126,8 @@ exports.registerApplication = async (req, res) => {
     const ftpPath = `/practices/students/student_${userID}/documents/${fileName}`;
     const fullURL = `https://uabcs.online${ftpPath}`;
 
-    // Subir archivo al FTP
     await uploadToFTP(file.buffer, ftpPath);
 
-    // Guardar en la base de datos
     await StudentApplication.saveApplication({
       studentID,
       practicePositionID,
@@ -175,140 +165,21 @@ exports.getApplicationsByCompanyID = async (req, res) => {
   }
 };
 
-// Obtener la práctica profesional registrada de un estudiante
-exports.getPracticeByStudentID = async (req, res) => {
+// Actualizar una postulación existente
+exports.updateApplication = async (req, res) => {
   try {
-    const studentID = req.params.studentID;
+    const applicationID = req.params.applicationID;
+    const { status, coverLetterFileName, coverLetterFilePath } = req.body;
 
-    const practice = await ProfessionalPractice.getPracticeByStudentID(studentID);
+    const result = await StudentApplication.updateApplication(applicationID, {
+      status,
+      coverLetterFileName,
+      coverLetterFilePath
+    });
 
-    if (!practice) {
-      return res.status(404).json({ message: 'No se encontró una práctica registrada para este estudiante.' });
-    }
-
-    res.status(200).json(practice);
+    res.status(200).json(result);
   } catch (error) {
-    console.error('Error al obtener la práctica profesional:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todas las prácticas asignadas a una empresa
-exports.getPracticesByCompanyID = async (req, res) => {
-  try {
-    const companyID = req.params.companyID;
-    const practices = await ProfessionalPractice.getPracticesByCompanyID(companyID);
-
-    if (practices.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron prácticas registradas para esta empresa.' });
-    }
-
-    res.status(200).json(practices);
-  } catch (error) {
-    console.error('Error al obtener prácticas por empresa:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todas las prácticas asignadas a un asesor externo
-exports.getPracticesByExternalAssessorID = async (req, res) => {
-  try {
-    const externalAssessorID = req.params.externalAssessorID;
-    const practices = await ProfessionalPractice.getPracticesByExternalAssessorID(externalAssessorID);
-
-    if (practices.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron prácticas asignadas para este asesor externo.' });
-    }
-
-    res.status(200).json(practices);
-  } catch (error) {
-    console.error('Error al obtener prácticas por asesor externo:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todas las prácticas de los alumnos asignados a un asesor interno
-exports.getPracticesByInternalAssessorID = async (req, res) => {
-  try {
-    const internalAssessorID = req.params.internalAssessorID;
-    const practices = await ProfessionalPractice.getPracticesByInternalAssessorID(internalAssessorID);
-
-    if (practices.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron prácticas registradas para este asesor interno.' });
-    }
-
-    res.status(200).json(practices);
-  } catch (error) {
-    console.error('Error al obtener prácticas por asesor interno:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener la práctica de un alumno asignado a un asesor interno específico
-exports.getStudentPracticeByAssessor = async (req, res) => {
-  try {
-    const { internalAssessorID, studentID } = req.params;
-    const practice = await ProfessionalPractice.getStudentPracticeByAssessor(internalAssessorID, studentID);
-
-    if (!practice) {
-      return res.status(404).json({ message: 'No se encontró una práctica registrada para este alumno bajo ese asesor.' });
-    }
-
-    res.status(200).json(practice);
-  } catch (error) {
-    console.error('Error al obtener práctica del alumno:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todas las prácticas registradas, con filtros opcionales por carrera y estado
-exports.getAllPractices = async (req, res) => {
-  try {
-    const { career, status } = req.query;
-    const practices = await ProfessionalPractice.getAllPractices(career, status);
-    console.log('practices:', practices);
-
-    if (practices.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron prácticas registradas con esos filtros.' });
-    }
-
-    res.status(200).json(practices);
-  } catch (error) {
-    console.error('Error al obtener prácticas:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todos los estudiantes asignados a un asesor externo
-exports.getStudentsByExternalAssessorID = async (req, res) => {
-  try {
-    const { externalAssessorID } = req.params;
-    const students = await ProfessionalPractice.getStudentsByExternalAssessorID(externalAssessorID);
-
-    if (students.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron estudiantes para este asesor externo.' });
-    }
-
-    res.status(200).json(students);
-  } catch (error) {
-    console.error('Error al obtener estudiantes por asesor externo:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-};
-
-// Obtener todos los estudiantes asignados a una empresa
-exports.getStudentsByCompanyID = async (req, res) => {
-  try {
-    const { companyID } = req.params;
-    const students = await ProfessionalPractice.getStudentsByCompanyID(companyID);
-
-    if (students.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron estudiantes para esta institución.' });
-    }
-
-    res.status(200).json(students);
-  } catch (error) {
-    console.error('Error al obtener estudiantes por institución:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+    console.error('Error al actualizar la postulación:', error.message);
+    res.status(500).json({ message: 'Error en el servidor al actualizar la postulación', error: error.message });
   }
 };
