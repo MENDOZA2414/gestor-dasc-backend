@@ -41,7 +41,7 @@ const registerExternalAssessor = async (assessorData) => {
 
 // Obtener un asesor externo por ID
 const getExternalAssessorByID = async (externalAssessorID) => {
-    const query = 'SELECT * FROM ExternalAssessor WHERE externalAssessorID = ?';
+    const query = 'SELECT * FROM ExternalAssessor WHERE externalAssessorID = ? AND recordStatus = "Activo"';
     const [results] = await pool.query(query, [externalAssessorID]);
 
     if (results.length === 0) {
@@ -60,6 +60,7 @@ const getAllExternalAssessors = async () => {
             companyID, 
             position 
         FROM ExternalAssessor
+        WHERE recordStatus = "Activo"
         ORDER BY firstName
     `;
     const [results] = await pool.query(query);
@@ -74,7 +75,7 @@ const getExternalAssessorsByCompanyID = async (companyID) => {
             CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS fullName, 
             position 
         FROM ExternalAssessor
-        WHERE companyID = ?
+        WHERE companyID = ? AND recordStatus = "Activo"
         ORDER BY firstName
     `;
     const [results] = await pool.query(query, [companyID]);
@@ -93,7 +94,7 @@ const updateExternalAssessor = async (externalAssessorID, updateData) => {
     const query = `
         UPDATE ExternalAssessor
         SET firstName = ?, firstLastName = ?, secondLastName = ?, professionID = ?, position = ?
-        WHERE externalAssessorID = ?
+        WHERE externalAssessorID = ? AND recordStatus = "Activo"
     `;
     const [result] = await pool.query(query, [
         firstName, 
@@ -105,22 +106,47 @@ const updateExternalAssessor = async (externalAssessorID, updateData) => {
     ]);
 
     if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar el asesor externo o no existe');
+        throw new Error('No se pudo actualizar el asesor externo o ya fue eliminado');
     }
 
     return { message: 'Asesor externo actualizado exitosamente' };
 };
 
-// Eliminar un asesor externo
+// Eliminar lógicamente un asesor externo
 const deleteExternalAssessor = async (externalAssessorID) => {
-    const query = 'DELETE FROM ExternalAssessor WHERE externalAssessorID = ?';
-    const [result] = await pool.query(query, [externalAssessorID]);
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
 
-    if (result.affectedRows === 0) {
-        throw new Error('No se pudo eliminar el asesor externo o no existe');
+        const [rows] = await connection.query(
+            'SELECT userID FROM ExternalAssessor WHERE externalAssessorID = ? AND recordStatus = "Activo"',
+            [externalAssessorID]
+        );
+
+        if (rows.length === 0) {
+            throw new Error('El asesor externo no existe o ya fue eliminado');
+        }
+
+        const { userID } = rows[0];
+
+        await connection.query(
+            'UPDATE ExternalAssessor SET recordStatus = "Eliminado" WHERE externalAssessorID = ?',
+            [externalAssessorID]
+        );
+
+        await connection.query(
+            'UPDATE User SET recordStatus = "Eliminado" WHERE userID = ?',
+            [userID]
+        );
+
+        await connection.commit();
+        return { message: 'Asesor externo y usuario marcados como eliminados' };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
     }
-
-    return { message: 'Asesor externo eliminado exitosamente' };
 };
 
 module.exports = {
