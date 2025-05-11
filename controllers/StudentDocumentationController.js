@@ -4,7 +4,7 @@ const StudentDocumentation = require('../models/StudentDocumentation');
 exports.getDocumentsByStudentAndStatus = async (req, res) => {
     try {
         const { studentID } = req.params;
-        const { status } = req.query;  // Puede ser "En proceso" o "Aceptado"
+        const { status } = req.query;  // Puede ser "Pending", "Accepted", "Rejected"
         const documents = await StudentDocumentation.getDocumentsByStudentAndStatus(studentID, status);
         res.status(200).send(documents);
     } catch (err) {
@@ -44,15 +44,14 @@ exports.countAcceptedDocuments = async (req, res) => {
 // Aprobar un documento
 exports.approveDocument = async (req, res) => {
     try {
-      const { documentID } = req.body;
-      const userType = req.user.userTypeID;
-      const result = await StudentDocumentation.approveDocument(documentID, userType);
-      res.status(200).send(result);
+        const { documentID } = req.body;
+        const userType = req.user.userTypeID;
+        const result = await StudentDocumentation.approveDocument(documentID, userType);
+        res.status(200).send(result);
     } catch (err) {
-      res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
+        res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
     }
-  };
-  
+};
 
 // Rechazar un documento
 exports.rejectDocument = async (req, res) => {
@@ -69,13 +68,11 @@ exports.rejectDocument = async (req, res) => {
 // Eliminar un documento
 exports.deleteDocument = async (req, res) => {
     try {
-      const { documentID } = req.body;
-      const userType = req.user.userTypeID;
-      const result = await StudentDocumentation.deleteDocument(documentID, userType);
-      res.status(200).send(result);
+        const { documentID } = req.body;
+        const userType = req.user.userTypeID;
+        const result = await StudentDocumentation.deleteDocument(documentID, userType);
+        res.status(200).send(result);
     } catch (err) {
-      res.status(500).send({ message: 'Error al eliminar documento', error: err.message });
+        res.status(500).send({ message: 'Error al eliminar documento', error: err.message });
     }
-  };
-  
-  
+};
