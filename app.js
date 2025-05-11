@@ -1,3 +1,5 @@
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
@@ -38,6 +40,30 @@ const corsOptions = {
 
 // Usar CORS como middleware global con las opciones configuradas
 app.use(cors(corsOptions));
+
+// Seguridad general con Helmet
+app.use(helmet());
+
+// Limitar cantidad de peticiones globales
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Demasiadas solicitudes desde esta IP, intenta más tarde.'
+});
+app.use(limiter);
+
+// Aplicar limitador solo al login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 15 minutos.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/users/login', loginLimiter);
+
 
 // Middlewares
 app.use(logger('dev'));
