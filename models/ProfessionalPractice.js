@@ -19,11 +19,12 @@ const getPracticeByStudentID = async (studentID) => {
     FROM ProfessionalPractice PP
     JOIN Company C ON PP.companyID = C.companyID
     LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
-    WHERE PP.studentID = ?
+    WHERE PP.studentID = ? AND PP.recordStatus = 'Activo'
   `;
   const [results] = await pool.query(query, [studentID]);
   return results.length > 0 ? results[0] : null;
 };
+
 // Obtener todas las prácticas registradas por una empresa
 const getPracticesByCompanyID = async (companyID) => {
     const query = `
@@ -44,14 +45,14 @@ const getPracticesByCompanyID = async (companyID) => {
       FROM ProfessionalPractice PP
       JOIN Student S ON PP.studentID = S.studentID
       LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
-      WHERE PP.companyID = ?
+      WHERE PP.companyID = ? AND PP.recordStatus = 'Activo'
       ORDER BY PP.creationDate DESC
     `;
     const [results] = await pool.query(query, [companyID]);
     return results;
 };
 
-  // Obtener todas las prácticas asignadas a un asesor externo
+// Obtener todas las prácticas asignadas a un asesor externo
 const getPracticesByExternalAssessorID = async (externalAssessorID) => {
     const query = `
       SELECT 
@@ -70,7 +71,7 @@ const getPracticesByExternalAssessorID = async (externalAssessorID) => {
       FROM ProfessionalPractice PP
       JOIN Student S ON PP.studentID = S.studentID
       JOIN Company C ON PP.companyID = C.companyID
-      WHERE PP.externalAssessorID = ?
+      WHERE PP.externalAssessorID = ? AND PP.recordStatus = 'Activo'
       ORDER BY PP.creationDate DESC
     `;
     const [results] = await pool.query(query, [externalAssessorID]);
@@ -99,13 +100,13 @@ const getPracticesByInternalAssessorID = async (internalAssessorID) => {
       JOIN Student S ON PP.studentID = S.studentID
       JOIN Company C ON PP.companyID = C.companyID
       LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
-      WHERE S.internalAssessorID = ?
+      WHERE S.internalAssessorID = ? AND PP.recordStatus = 'Activo'
       ORDER BY PP.creationDate DESC
     `;
     const [results] = await pool.query(query, [internalAssessorID]);
     return results;
 };
-  
+
 // Obtener la práctica de un alumno asignado a un asesor interno específico
 const getStudentPracticeByAssessor = async (internalAssessorID, studentID) => {
     const query = `
@@ -128,7 +129,7 @@ const getStudentPracticeByAssessor = async (internalAssessorID, studentID) => {
       JOIN Student S ON PP.studentID = S.studentID
       JOIN Company C ON PP.companyID = C.companyID
       LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
-      WHERE S.internalAssessorID = ? AND S.studentID = ?
+      WHERE S.internalAssessorID = ? AND S.studentID = ? AND PP.recordStatus = 'Activo'
     `;
     const [results] = await pool.query(query, [internalAssessorID, studentID]);
     return results.length > 0 ? results[0] : null;
@@ -157,27 +158,27 @@ const getAllPractices = async (career = null, status = null) => {
       JOIN Student S ON PP.studentID = S.studentID
       JOIN Company C ON PP.companyID = C.companyID
       LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
-      WHERE 1 = 1
+      WHERE PP.recordStatus = 'Activo'
     `;
-  
+
     const params = [];
-  
+
     if (career) {
       query += ` AND S.career = ?`;
       params.push(career);
     }
-  
+
     if (status) {
       query += ` AND PP.status = ?`;
       params.push(status);
     }
-  
+
     query += ` ORDER BY PP.creationDate DESC`;
-  
+
     const [results] = await pool.query(query, params);
     return results;
 };
-  
+
 // Obtener estudiantes asignados a un asesor externo
 const getStudentsByExternalAssessorID = async (externalAssessorID) => {
     const query = `
@@ -194,7 +195,7 @@ const getStudentsByExternalAssessorID = async (externalAssessorID) => {
         PP.status
       FROM ProfessionalPractice PP
       JOIN Student S ON PP.studentID = S.studentID
-      WHERE PP.externalAssessorID = ?
+      WHERE PP.externalAssessorID = ? AND PP.recordStatus = 'Activo'
       ORDER BY S.firstLastName, S.secondLastName
     `;
     const [results] = await pool.query(query, [externalAssessorID]);
@@ -217,13 +218,50 @@ const getStudentsByCompanyID = async (companyID) => {
         PP.status
       FROM ProfessionalPractice PP
       JOIN Student S ON PP.studentID = S.studentID
-      WHERE PP.companyID = ?
+      WHERE PP.companyID = ? AND PP.recordStatus = 'Activo'
       ORDER BY S.firstLastName, S.secondLastName
     `;
     const [results] = await pool.query(query, [companyID]);
     return results;
 };
-  
+
+// Editar una práctica profesional existente
+const updatePractice = async (practiceID, updateData) => {
+  const { startDate, endDate, status, positionTitle } = updateData;
+
+  const query = `
+    UPDATE ProfessionalPractice
+    SET startDate = ?, endDate = ?, status = ?, positionTitle = ?
+    WHERE practiceID = ? AND recordStatus = 'Activo'
+  `;
+
+  const [result] = await pool.query(query, [
+    startDate,
+    endDate,
+    status,
+    positionTitle,
+    practiceID
+  ]);
+
+  if (result.affectedRows === 0) {
+    throw new Error('No se pudo actualizar la práctica profesional');
+  }
+
+  return { message: 'Práctica profesional actualizada correctamente' };
+};
+
+// Eliminar lógicamente una práctica profesional
+const deletePractice = async (practiceID) => {
+  const query = `UPDATE ProfessionalPractice SET recordStatus = 'Eliminado' WHERE practiceID = ?`;
+  const [result] = await pool.query(query, [practiceID]);
+
+  if (result.affectedRows === 0) {
+    throw new Error('No se encontró la práctica para eliminar');
+  }
+
+  return { message: 'Práctica profesional eliminada correctamente' };
+};
+
 module.exports = {
     getPracticeByStudentID,
     getPracticesByCompanyID,
@@ -232,6 +270,7 @@ module.exports = {
     getStudentPracticeByAssessor,
     getAllPractices,
     getStudentsByExternalAssessorID,
-    getStudentsByCompanyID
+    getStudentsByCompanyID,
+    updatePractice,
+    deletePractice
 };
-

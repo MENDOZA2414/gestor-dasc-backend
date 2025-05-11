@@ -14,6 +14,7 @@ const studentApplicationRoutes = require('./routes/StudentApplicationRoutes');
 const practicePositionRoutes = require('./routes/PracticePositionRoutes');  
 const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes');  
 const documentRoutes = require('./routes/DocumentRoutes');
+const professionalPracticeRoutes = require('./routes/ProfessionalPracticeRoutes');
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/externalAssessors', externalAssessorRoutes);  // Rutas para asesor
 app.use('/api/companies', companyRoutes);  // Rutas para entidades receptoras
 app.use('/api/applications', studentApplicationRoutes);  // Rutas para postulaciones
 app.use('/api/practicePositions', practicePositionRoutes);  // Rutas para vacantes
+app.use('/api/professional-practices', professionalPracticeRoutes);  // Rutas para prácticas profesionales
 app.use('/api/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
 app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 
