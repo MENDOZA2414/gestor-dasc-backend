@@ -46,9 +46,36 @@ const countInternalAssessors = async (req, res) => {
     }
 };
 
+// Eliminar un asesor interno por ID (eliminación lógica)
+const deleteInternalAssessor = async (req, res) => {
+    try {
+        const internalAssessorID = req.params.id;
+        const result = await InternalAssessor.deleteInternalAssessor(internalAssessorID);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error al eliminar el asesor interno:', error.message);
+        res.status(500).json({ message: 'No se pudo eliminar el asesor interno', error: error.message });
+    }
+};
+
+// Actualizar un asesor interno por ID
+const updateInternalAssessor = async (req, res) => {
+    try {
+        const internalAssessorID = req.params.id;
+        const updateData = req.body;
+        const result = await InternalAssessor.updateInternalAssessor(internalAssessorID, updateData);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error al actualizar el asesor interno:', error.message);
+        res.status(500).json({ message: 'No se pudo actualizar el asesor interno', error: error.message });
+    }
+};
+
 module.exports = {
     registerInternalAssessorController,
     getInternalAssessorByID,
     getAllInternalAssessors,
-    countInternalAssessors
+    countInternalAssessors,
+    deleteInternalAssessor,
+    updateInternalAssessor
 };

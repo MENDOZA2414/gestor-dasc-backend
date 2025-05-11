@@ -14,4 +14,10 @@ router.get('/:id', internalAssessorController.getInternalAssessorByID);
 // Ruta para obtener todos los asesores internos
 router.get('/', internalAssessorController.getAllInternalAssessors);
 
+// Ruta para eliminar un asesor interno por ID (eliminación lógica)
+router.delete('/:id', internalAssessorController.deleteInternalAssessor);
+
+// Ruta para actualizar un asesor interno por ID
+router.put('/:id', internalAssessorController.updateInternalAssessor);
+
 module.exports = router;
