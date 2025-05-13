@@ -119,7 +119,7 @@ const getStudentsByInternalAssessorID = async (internalAssessorID) => {
     return results;
 };
 
-// Obtener todos los alumnos asignados a un asesor interno
+// Obtener todos los alumnos asignados a un asesor interno (nombre y numero de control)
 const getAllStudents = async (internalAssessorID) => {
     const query = `
         SELECT controlNumber, CONCAT(firstName, " ", firstLastName, " ", secondLastName) AS name
@@ -208,30 +208,22 @@ const deleteStudentByControlNumber = async (controlNumber) => {
 };
 
 // Actualizar datos de un alumno si está activo
-const updateStudent = async (controlNumber, updateData) => {
-  const {
-    firstName, firstLastName, secondLastName,
-    dateOfBirth, career, semester, shift,
-    studentStatus, status, internalAssessorID
-  } = updateData;
+const patchStudent = async (controlNumber, fieldsToUpdate) => {
+  const keys = Object.keys(fieldsToUpdate);
+  const values = Object.values(fieldsToUpdate);
 
-  const query = `
-    UPDATE Student
-    SET firstName = ?, firstLastName = ?, secondLastName = ?, dateOfBirth = ?, career = ?, semester = ?, shift = ?, studentStatus = ?, status = ?, internalAssessorID = ?
-    WHERE controlNumber = ? AND recordStatus = "Activo"
-  `;
-  const [result] = await pool.query(query, [
-    firstName, firstLastName, secondLastName,
-    dateOfBirth, career, semester, shift,
-    studentStatus, status, internalAssessorID,
-    controlNumber
-  ]);
+  if (keys.length === 0) throw new Error("No se proporcionaron campos");
 
-  if (result.affectedRows === 0) {
-    throw new Error('No se pudo actualizar el alumno o ya fue eliminado');
-  }
+  const setClause = keys.map(key => `${key} = ?`).join(", ");
+  const query = `UPDATE Student SET ${setClause} WHERE controlNumber = ? AND recordStatus = 'Activo'`;
 
-  return { message: 'Alumno actualizado correctamente' };
+  values.push(controlNumber);
+
+  const [result] = await pool.query(query, values);
+
+  if (result.affectedRows === 0) throw new Error("Alumno no encontrado o ya eliminado");
+
+  return { message: "Alumno actualizado correctamente" };
 };
 
 module.exports = {
@@ -243,5 +235,5 @@ module.exports = {
     getStudentsByStudentStatus,
     countStudents,
     deleteStudentByControlNumber,
-    updateStudent
+    patchStudent
 };
