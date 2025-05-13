@@ -3,7 +3,12 @@ const InternalAssessor = require('../models/InternalAssessor');
 // Registrar un asesor interno
 const registerInternalAssessorController = async (req, res) => {
     try {
-        const assessorData = req.body;
+        const assessorData = {
+            ...req.body,
+            profilePhotoName: req.generatedFileName || null,
+            profilePhotoBuffer: req.bufferFile || null
+        };
+
         const result = await InternalAssessor.registerInternalAssessor(assessorData);
         res.status(201).send(result);
     } catch (error) {
@@ -59,14 +64,19 @@ const deleteInternalAssessor = async (req, res) => {
 };
 
 // Actualizar un asesor interno por ID
-const updateInternalAssessor = async (req, res) => {
+const patchInternalAssessorController = async (req, res) => {
     try {
         const internalAssessorID = req.params.id;
         const updateData = req.body;
-        const result = await InternalAssessor.updateInternalAssessor(internalAssessorID, updateData);
+
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
+        }
+
+        const result = await InternalAssessor.patchInternalAssessor(internalAssessorID, updateData);
         res.status(200).json(result);
     } catch (error) {
-        console.error('Error al actualizar el asesor interno:', error.message);
+        console.error('Error al actualizar parcialmente el asesor interno:', error.message);
         res.status(500).json({ message: 'No se pudo actualizar el asesor interno', error: error.message });
     }
 };
@@ -77,5 +87,5 @@ module.exports = {
     getAllInternalAssessors,
     countInternalAssessors,
     deleteInternalAssessor,
-    updateInternalAssessor
+    patchInternalAssessorController
 };

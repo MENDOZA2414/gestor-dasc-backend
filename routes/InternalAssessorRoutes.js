@@ -18,6 +18,6 @@ router.get('/', internalAssessorController.getAllInternalAssessors);
 router.delete('/:id', internalAssessorController.deleteInternalAssessor);
 
 // Ruta para actualizar un asesor interno por ID
-router.put('/:id', internalAssessorController.updateInternalAssessor);
+router.patch('/:id', internalAssessorController.patchInternalAssessorController);
 
 module.exports = router;

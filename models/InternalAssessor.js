@@ -3,33 +3,55 @@ const { registerUser } = require('./User');
 
 // Registrar un asesor interno
 const registerInternalAssessor = async (assessorData) => {
-    const connection = await pool.getConnection();  // Obtener la conexión
+    const connection = await pool.getConnection();
     try {
-        // Iniciar la transacción
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName } = assessorData;
+        const {
+            email, password, phone,
+            firstName, firstLastName, secondLastName,
+            profilePhotoName, profilePhotoBuffer
+        } = assessorData;
 
-        // Registrar el usuario primero en la tabla 'User'
-        const userID = await registerUser(connection, email, password, phone, 2); // 2 sería el roleID para Internal Assessor
+        const userID = await registerUser(connection, email, password, phone, 2); // 2: rol asesor interno
 
-        // Insertar en la tabla 'InternalAssessor'
-        const query = `
-            INSERT INTO InternalAssessor (userID, firstName, firstLastName, secondLastName)
-            VALUES (?, ?, ?, ?)
+        const insertQuery = `
+            INSERT INTO InternalAssessor (userID, firstName, firstLastName, secondLastName, photo, internalAssessorStatus)
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [userID, firstName, firstLastName, secondLastName]);
+        const safePhotoName = profilePhotoName || null;
+        await connection.query(insertQuery, [
+            userID, firstName, firstLastName, secondLastName, safePhotoName, "Activo"
+        ]);
 
-        // Confirmar la transacción
+        const [[{ internalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS internalAssessorID");
+
+        // Subir imagen al FTP
+        if (profilePhotoBuffer && profilePhotoName) {
+            const safeFileName = profilePhotoName
+                .replace(/\s+/g, "_")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^\w.-]/g, "");
+
+            const ftpPath = `/images/internal-assessors/${safeFileName}`;
+            const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
+
+            await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
+
+            await connection.query("UPDATE InternalAssessor SET photo = ? WHERE internalAssessorID = ?", [
+                photoUrl,
+                internalAssessorID
+            ]);
+        }
+
         await connection.commit();
         return { message: 'Internal Assessor successfully registered' };
-
     } catch (error) {
-        // Revertir la transacción si hay un error
         await connection.rollback();
         throw error;
     } finally {
-        connection.release();  // Liberar la conexión
+        connection.release();
     }
 };
 
@@ -98,27 +120,26 @@ const deleteInternalAssessor = async (internalAssessorID) => {
 };
 
 // Actualizar datos del asesor interno
-const updateInternalAssessor = async (internalAssessorID, updateData) => {
-    const { firstName, firstLastName, secondLastName } = updateData;
-
-    const query = `
-        UPDATE InternalAssessor
-        SET firstName = ?, firstLastName = ?, secondLastName = ?
-        WHERE internalAssessorID = ? AND recordStatus = "Activo"
-    `;
-    const [result] = await pool.query(query, [
-        firstName,
-        firstLastName,
-        secondLastName,
-        internalAssessorID
-    ]);
-
+const patchInternalAssessor = async (internalAssessorID, updateData) => {
+    const keys = Object.keys(updateData);
+    const values = Object.values(updateData);
+  
+    if (keys.length === 0) throw new Error("No se proporcionaron campos");
+  
+    const setClause = keys.map(key => `${key} = ?`).join(", ");
+    const query = `UPDATE InternalAssessor SET ${setClause} WHERE internalAssessorID = ? AND recordStatus = 'Activo'`;
+  
+    values.push(internalAssessorID);
+  
+    const [result] = await pool.query(query, values);
+  
     if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar el asesor o ya fue eliminado');
+      throw new Error("No se pudo actualizar el asesor o ya fue eliminado");
     }
-
-    return { message: 'Asesor interno actualizado correctamente' };
+  
+    return { message: "Asesor interno actualizado correctamente" };
 };
+  
 
 module.exports = {
     registerInternalAssessor,
@@ -126,5 +147,5 @@ module.exports = {
     getAllInternalAssessors,
     countInternalAssessors,
     deleteInternalAssessor,
-    updateInternalAssessor
+    patchInternalAssessor
 };
