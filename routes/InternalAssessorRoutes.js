@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const internalAssessorController = require('../controllers/InternalAssessorController');
+const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 
 // Ruta para registrar un asesor interno
-router.post('/register', internalAssessorController.registerInternalAssessorController);
+router.post('/register', profileUploadMiddleware, internalAssessorController.registerInternalAssessorController);
 
 // Ruta para probar la conexión y contar el número de asesores internos
 router.get('/testConnection', internalAssessorController.countInternalAssessors);

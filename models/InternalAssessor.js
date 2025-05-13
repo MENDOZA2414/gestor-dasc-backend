@@ -1,5 +1,7 @@
 const pool = require('../config/db');
 const { registerUser } = require('./User');
+const createFtpStructure = require('../utils/FtpStructureBuilder');
+const uploadToFTP = require('../utils/FtpUploader'); 
 
 // Registrar un asesor interno
 const registerInternalAssessor = async (assessorData) => {
@@ -12,8 +14,8 @@ const registerInternalAssessor = async (assessorData) => {
             firstName, firstLastName, secondLastName,
             profilePhotoName, profilePhotoBuffer
         } = assessorData;
-
-        const userID = await registerUser(connection, email, password, phone, 2); // 2: rol asesor interno
+ 
+        const userID = await registerUser(connection, email, password, phone, 2, 2); 
 
         const insertQuery = `
             INSERT INTO InternalAssessor (userID, firstName, firstLastName, secondLastName, photo, internalAssessorStatus)
@@ -34,7 +36,7 @@ const registerInternalAssessor = async (assessorData) => {
                 .replace(/[\u0300-\u036f]/g, "")
                 .replace(/[^\w.-]/g, "");
 
-            const ftpPath = `/images/internal-assessors/${safeFileName}`;
+            const ftpPath = `/images/profiles/${safeFileName}`;
             const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
 
             await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
@@ -46,6 +48,7 @@ const registerInternalAssessor = async (assessorData) => {
         }
 
         await connection.commit();
+        await createFtpStructure("internalAssessor", internalAssessorID);
         return { message: 'Internal Assessor successfully registered' };
     } catch (error) {
         await connection.rollback();
