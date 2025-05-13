@@ -2,42 +2,78 @@
 
 const pool = require('../config/db');
 const { registerUser } = require('./User');
+const uploadToFTP = require('../utils/FtpUploader'); 
+const createFtpStructure = require('../utils/FtpStructureBuilder');
+const validateCompanyData = require('../utils/ValidateCompanyData');
 
 // Registra una nueva entidad receptora en la base de datos.
 const registerCompany = async (companyData) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+        
+        // Validaciones de entrada
+        validateCompanyData(companyData);
 
         const {
-            email, password, phone, rfc, fiscalName, companyName, address, externalNumber,
-            interiorNumber, suburb, city, state, zipCode, companyPhone, category, areaID,
-            website, companyStatus, status, photo
+            email, password, phone,
+            rfc, fiscalName, companyName, address, externalNumber,
+            interiorNumber, suburb, city, state, zipCode,
+            companyPhone, category, areaID, website,
+            companyStatus = 'Activo', status = 'Pendiente',
+            profilePhotoName, profilePhotoBuffer
         } = companyData;
 
-        // Validar datos básicos necesarios.
         if (!rfc || !fiscalName || !companyName) {
             throw new Error('RFC, nombre fiscal y nombre de la empresa son obligatorios');
         }
 
-        // Crear usuario para la compañía.
-        const userID = await registerUser(connection, email, password, phone, 3);
+        const userID = await registerUser(connection, email, password, phone, 3, 3); // 3 = empresa
 
-        // Insertar la compañía en la base de datos.
-        const query = `
+        // Insertar con photo = null temporalmente
+        const insertQuery = `
             INSERT INTO Company (
                 userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
                 suburb, city, state, zipCode, companyPhone, category, areaID, website,
                 companyStatus, status, photo
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [
+
+        await connection.query(insertQuery, [
             userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
             suburb, city, state, zipCode, companyPhone, category, areaID, website,
-            companyStatus, status, photo
+            companyStatus, status, null
         ]);
 
-        await connection.commit();
+        const [[{ companyID }]] = await connection.query("SELECT LAST_INSERT_ID() AS companyID");
+
+        await connection.commit(); // Confirmar transacción primero
+
+        // Crear carpeta FTP
+        await createFtpStructure("company", companyID);
+
+        // Subir imagen de perfil si existe
+        if (profilePhotoBuffer && profilePhotoName) {
+            const safeFileName = profilePhotoName
+                .replace(/\s+/g, "_")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^\w.-]/g, "");
+
+            const ftpPath = `/images/profiles/${safeFileName}`;
+            const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
+
+            try {
+                await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
+                await pool.query("UPDATE Company SET photo = ? WHERE companyID = ?", [
+                    photoUrl,
+                    companyID
+                ]);
+            } catch (err) {
+                console.warn("Empresa registrada, pero falló la subida de la foto:", err.message);
+            }
+        }
+
         return { message: 'Entidad receptora registrada exitosamente' };
     } catch (error) {
         await connection.rollback();

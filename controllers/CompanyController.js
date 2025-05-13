@@ -40,7 +40,12 @@ const getCompaniesByStatus = async (req, res) => {
 // Registrar una nueva entidad receptora
 const registerCompany = async (req, res) => {
     try {
-        const companyData = req.body; // Información de la entidad desde el cliente
+        const companyData = {
+            ...req.body,
+            profilePhotoName: req.generatedFileName || null,
+            profilePhotoBuffer: req.bufferFile || null
+        };
+
         const result = await Company.registerCompany(companyData);
         res.status(201).json(result);
     } catch (error) {
@@ -51,6 +56,7 @@ const registerCompany = async (req, res) => {
         });
     }
 };
+
 
 // Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {

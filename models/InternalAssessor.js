@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const { registerUser } = require('./User');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const uploadToFTP = require('../utils/FtpUploader'); 
+const validateInternalAssessorData = require('../utils/ValidateInternalAssessorData');
 
 // Registrar un asesor interno
 const registerInternalAssessor = async (assessorData) => {
@@ -9,26 +10,37 @@ const registerInternalAssessor = async (assessorData) => {
     try {
         await connection.beginTransaction();
 
+        // Validaciones de entrada
+        validateInternalAssessorData(assessorData);
+
         const {
             email, password, phone,
             firstName, firstLastName, secondLastName,
-            profilePhotoName, profilePhotoBuffer
+            profilePhotoName, profilePhotoBuffer,
+            internalAssessorStatus = 'Activo'
         } = assessorData;
- 
-        const userID = await registerUser(connection, email, password, phone, 2, 2); 
 
+        const userID = await registerUser(connection, email, password, phone, 3, 2); // 2 = asesor interno
+
+        // Insertar con photo = null inicialmente
         const insertQuery = `
-            INSERT INTO InternalAssessor (userID, firstName, firstLastName, secondLastName, photo, internalAssessorStatus)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO InternalAssessor (
+                userID, firstName, firstLastName, secondLastName, photo, internalAssessorStatus
+            ) VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const safePhotoName = profilePhotoName || null;
+
         await connection.query(insertQuery, [
-            userID, firstName, firstLastName, secondLastName, safePhotoName, "Activo"
+            userID, firstName, firstLastName, secondLastName, null, internalAssessorStatus
         ]);
 
         const [[{ internalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS internalAssessorID");
 
-        // Subir imagen al FTP
+        await connection.commit(); // Confirmar transacción primero
+
+        // Crear carpeta FTP
+        await createFtpStructure("internalAssessor", internalAssessorID);
+
+        // Subir imagen si existe
         if (profilePhotoBuffer && profilePhotoName) {
             const safeFileName = profilePhotoName
                 .replace(/\s+/g, "_")
@@ -39,17 +51,18 @@ const registerInternalAssessor = async (assessorData) => {
             const ftpPath = `/images/profiles/${safeFileName}`;
             const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
 
-            await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
-
-            await connection.query("UPDATE InternalAssessor SET photo = ? WHERE internalAssessorID = ?", [
-                photoUrl,
-                internalAssessorID
-            ]);
+            try {
+                await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
+                await pool.query("UPDATE InternalAssessor SET photo = ? WHERE internalAssessorID = ?", [
+                    photoUrl,
+                    internalAssessorID
+                ]);
+            } catch (err) {
+                console.warn("Asesor registrado, pero falló la subida de la foto:", err.message);
+            }
         }
 
-        await connection.commit();
-        await createFtpStructure("internalAssessor", internalAssessorID);
-        return { message: 'Internal Assessor successfully registered' };
+        return { message: 'Asesor interno registrado exitosamente' };
     } catch (error) {
         await connection.rollback();
         throw error;
