@@ -71,17 +71,23 @@ const deleteCompany = async (req, res) => {
 };
 
 // Actualizar una entidad receptora por ID
-const updateCompany = async (req, res) => {
+const patchCompanyController = async (req, res) => {
     try {
         const companyID = req.params.companyID;
         const updateData = req.body;
-        const result = await Company.updateCompany(companyID, updateData);
+
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
+        }
+
+        const result = await Company.patchCompany(companyID, updateData);
         res.status(200).json(result);
     } catch (error) {
         console.error('Error al actualizar entidad:', error.message);
         res.status(500).json({ message: 'No se pudo actualizar la entidad.', error: error.message });
     }
 };
+
 
 // Exportar las funciones del controlador
 module.exports = {
@@ -90,5 +96,5 @@ module.exports = {
     getCompaniesByStatus,
     registerCompany,
     deleteCompany,
-    updateCompany
+    patchCompanyController
 };

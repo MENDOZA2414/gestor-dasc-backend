@@ -20,6 +20,6 @@ router.post('/register', companyController.registerCompany);
 router.delete('/:companyID', companyController.deleteCompany);
 
 // Actualizar los datos de una entidad receptora por ID.
-router.put('/:companyID', companyController.updateCompany);
+router.patch('/:companyID', companyController.patchCompanyController);
 
 module.exports = router;

@@ -137,25 +137,34 @@ const deleteInternalAssessor = async (internalAssessorID) => {
 
 // Actualizar datos del asesor interno
 const patchInternalAssessor = async (internalAssessorID, updateData) => {
-    const keys = Object.keys(updateData);
-    const values = Object.values(updateData);
-  
-    if (keys.length === 0) throw new Error("No se proporcionaron campos");
-  
-    const setClause = keys.map(key => `${key} = ?`).join(", ");
-    const query = `UPDATE InternalAssessor SET ${setClause} WHERE internalAssessorID = ? AND recordStatus = 'Activo'`;
-  
-    values.push(internalAssessorID);
-  
-    const [result] = await pool.query(query, values);
-  
-    if (result.affectedRows === 0) {
-      throw new Error("No se pudo actualizar el asesor o ya fue eliminado");
+    if (!updateData || Object.keys(updateData).length === 0) {
+        throw new Error("No se proporcionaron campos para actualizar");
     }
-  
+
+    const keys = Object.keys(updateData);
+    const values = [];
+
+    const setClause = keys.map(key => {
+        values.push(updateData[key]);
+        return `${key} = ?`;
+    }).join(", ");
+
+    const query = `
+        UPDATE InternalAssessor 
+        SET ${setClause} 
+        WHERE internalAssessorID = ? AND recordStatus = 'Activo'
+    `;
+
+    values.push(internalAssessorID);
+
+    const [result] = await pool.query(query, values);
+
+    if (result.affectedRows === 0) {
+        throw new Error("No se pudo actualizar el asesor o ya fue eliminado");
+    }
+
     return { message: "Asesor interno actualizado correctamente" };
 };
-  
 
 module.exports = {
     registerInternalAssessor,

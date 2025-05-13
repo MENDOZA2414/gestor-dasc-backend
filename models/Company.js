@@ -156,36 +156,34 @@ const deleteCompany = async (companyID) => {
 };
 
 // Actualiza los datos de una entidad receptora por su ID.
-const updateCompany = async (companyID, updateData) => {
-    const {
-        rfc, fiscalName, companyName, address, externalNumber,
-        interiorNumber, suburb, city, state, zipCode,
-        companyPhone, category, areaID, website,
-        companyStatus, status
-    } = updateData;
-
-    const query = `
-        UPDATE Company SET
-            rfc = ?, fiscalName = ?, companyName = ?, address = ?, externalNumber = ?,
-            interiorNumber = ?, suburb = ?, city = ?, state = ?, zipCode = ?,
-            companyPhone = ?, category = ?, areaID = ?, website = ?,
-            companyStatus = ?, status = ?
-        WHERE companyID = ? AND recordStatus = "Activo"
-    `;
-
-    const [result] = await pool.query(query, [
-        rfc, fiscalName, companyName, address, externalNumber,
-        interiorNumber, suburb, city, state, zipCode,
-        companyPhone, category, areaID, website,
-        companyStatus, status,
-        companyID
-    ]);
-
-    if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar la entidad o ya fue eliminada');
+const patchCompany = async (companyID, updateData) => {
+    if (!updateData || Object.keys(updateData).length === 0) {
+        throw new Error("No se proporcionaron campos para actualizar");
     }
 
-    return { message: 'Entidad receptora actualizada correctamente' };
+    const keys = Object.keys(updateData);
+    const values = [];
+
+    const setClause = keys.map(key => {
+        values.push(updateData[key]);
+        return `${key} = ?`;
+    }).join(", ");
+
+    const query = `
+        UPDATE Company 
+        SET ${setClause} 
+        WHERE companyID = ? AND recordStatus = 'Activo'
+    `;
+
+    values.push(companyID);
+
+    const [result] = await pool.query(query, values);
+
+    if (result.affectedRows === 0) {
+        throw new Error("No se pudo actualizar la entidad o ya fue eliminada");
+    }
+
+    return { message: "Entidad receptora actualizada correctamente" };
 };
 
 module.exports = {
@@ -194,5 +192,5 @@ module.exports = {
     getAllCompanies,
     getCompaniesByStatus,
     deleteCompany,
-    updateCompany
+    patchCompany
 };
