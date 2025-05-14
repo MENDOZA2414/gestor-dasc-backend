@@ -27,8 +27,10 @@ const registerCompany = async (companyData) => {
             interiorNumber, suburb, city, state, zipCode,
             companyPhone, category, areaID, website,
             companyStatus = 'Activo', status = 'Pendiente',
-            profilePhotoName, profilePhotoBuffer
+            profilePhotoName, profilePhotoBuffer,
+            needs, modality, economicSupport
         } = companyData;
+
 
         if (!rfc || !fiscalName || !companyName) {
             throw new Error('RFC, nombre fiscal y nombre de la empresa son obligatorios');
@@ -36,20 +38,21 @@ const registerCompany = async (companyData) => {
 
         const userID = await registerUser(connection, email, password, phone, 3, 3); // 3 = empresa
 
-        // Insertar con photo = null temporalmente
-        const insertQuery = `
-            INSERT INTO Company (
+            // Insertar con photo = null temporalmente
+            const insertQuery = `
+                INSERT INTO Company (
+                    userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
+                    suburb, city, state, zipCode, companyPhone, category, areaID, website,
+                    companyStatus, status, photo, needs, modality, economicSupport
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+    
+            await connection.query(insertQuery, [
                 userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
                 suburb, city, state, zipCode, companyPhone, category, areaID, website,
-                companyStatus, status, photo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        await connection.query(insertQuery, [
-            userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
-            suburb, city, state, zipCode, companyPhone, category, areaID, website,
-            companyStatus, status, null
-        ]);
+                companyStatus, status, null, needs, modality, economicSupport
+            ]);
+    
 
         const [[{ companyID }]] = await connection.query("SELECT LAST_INSERT_ID() AS companyID");
 
