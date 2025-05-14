@@ -1,14 +1,10 @@
 const pool = require('../config/db');
 
 const getPositionByID = async (practicePositionID) => {
-    const query = 'SELECT * FROM PracticePosition WHERE practicePositionID = ?';
+    const query = 'SELECT * FROM PracticePosition WHERE practicePositionID = ? AND recordStatus = "Activo"';
     const [result] = await pool.query(query, [practicePositionID]);
     if (result.length > 0) {
-        let position = result[0];
-        if (position.logoEmpresa) {
-            position.logoEmpresa = `data:image/jpeg;base64,${Buffer.from(position.logoEmpresa).toString('base64')}`;
-        }
-        return position;
+        return result[0];
     } else {
         throw new Error('No existe la vacante');
     }
@@ -25,15 +21,10 @@ const getPositionsByCompanyID = async (companyID) => {
         FROM PracticePosition pp
         JOIN ExternalAssessor ea ON pp.externalAssessorID = ea.externalAssessorID
         JOIN Company er ON pp.companyID = er.companyID
-        WHERE pp.companyID = ? 
+        WHERE pp.companyID = ? AND pp.recordStatus = 'Activo'
         ORDER BY pp.practicePositionID DESC
     `;
     const [results] = await pool.query(query, [companyID]);
-    results.forEach(row => {
-        if (row.companyLogo) {
-            row.companyLogo = `data:image/jpeg;base64,${Buffer.from(row.companyLogo).toString('base64')}`;
-        }
-    });
     return results;
 };
 
@@ -49,15 +40,11 @@ const getAllPositions = async (page, limit) => {
         FROM PracticePosition pp
         JOIN ExternalAssessor ea ON pp.externalAssessorID = ea.externalAssessorID
         JOIN Company er ON pp.companyID = er.companyID
+        WHERE pp.recordStatus = 'Activo'
         ORDER BY pp.practicePositionID DESC 
         LIMIT ?, ?
     `;
     const [results] = await pool.query(query, [start, limit]);
-    results.forEach(row => {
-        if (row.companyLogo) {
-            row.companyLogo = `data:image/jpeg;base64,${Buffer.from(row.companyLogo).toString('base64')}`;
-        }
-    });
     return results;
 };
 
@@ -72,7 +59,7 @@ const getPositionsByStatus = async (status) => {
       FROM PracticePosition pp
       JOIN ExternalAssessor ea ON pp.externalAssessorID = ea.externalAssessorID
       JOIN Company er ON pp.companyID = er.companyID
-      WHERE 1=1
+      WHERE pp.recordStatus = 'Activo'
     `;
     const params = [];
 
@@ -86,11 +73,6 @@ const getPositionsByStatus = async (status) => {
     query += ' ORDER BY pp.practicePositionID DESC';
 
     const [results] = await pool.query(query, params);
-    results.forEach(row => {
-        if (row.companyLogo) {
-            row.companyLogo = `data:image/jpeg;base64,${Buffer.from(row.companyLogo).toString('base64')}`;
-        }
-    });
     return results;
 };
 
@@ -108,21 +90,21 @@ const createPosition = async (positionData) => {
     return result2[0];
 };
 
+// Eliminación lógica
 const deletePosition = async (practicePositionID) => {
     const checkStatusQuery = 'SELECT status FROM PracticePosition WHERE practicePositionID = ?';
-    const deleteQuery = 'DELETE FROM PracticePosition WHERE practicePositionID = ?';
-
     const [result] = await pool.query(checkStatusQuery, [practicePositionID]);
 
-    if (result.length > 0 && result[0].status === 'Accepted') {
-        await pool.query(deleteQuery, [practicePositionID]);
-        return { message: 'Vacante eliminada con éxito' };
+    if (result.length > 0 && result[0].status === 'Aceptado') {
+        const updateQuery = 'UPDATE PracticePosition SET recordStatus = "Eliminado" WHERE practicePositionID = ?';
+        await pool.query(updateQuery, [practicePositionID]);
+        return { message: 'Vacante marcada como eliminada' };
     } else {
         throw new Error('Solo se pueden eliminar elementos aceptados');
     }
 };
-// TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
 
+// TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
 const deletePositionAndApplications = async (positionID) => {
     const connection = await pool.getConnection();
     try {
