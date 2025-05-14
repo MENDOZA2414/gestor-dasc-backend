@@ -62,12 +62,13 @@ const getPositionsByStatus = async (status) => {
       WHERE pp.recordStatus = 'Activo'
     `;
     const params = [];
+    const validStatuses = ['Pendiente', 'Aceptado', 'Rechazado', 'Inactiva', 'Cerrado'];
 
-    if (status) {
+    if (status && validStatuses.includes(status)) {
         query += ' AND pp.status = ?';
         params.push(status);
     } else {
-        query += ' AND (pp.status IS NULL OR pp.status = "")';
+        query += ' AND pp.status = "Aceptado"';
     }
 
     query += ' ORDER BY pp.practicePositionID DESC';
@@ -95,13 +96,48 @@ const deletePosition = async (practicePositionID) => {
     const checkStatusQuery = 'SELECT status FROM PracticePosition WHERE practicePositionID = ?';
     const [result] = await pool.query(checkStatusQuery, [practicePositionID]);
 
-    if (result.length > 0 && result[0].status === 'Aceptado') {
+    if (result.length > 0 && ['Aceptado', 'Cerrado'].includes(result[0].status)) {
         const updateQuery = 'UPDATE PracticePosition SET recordStatus = "Eliminado" WHERE practicePositionID = ?';
         await pool.query(updateQuery, [practicePositionID]);
         return { message: 'Vacante marcada como eliminada' };
     } else {
-        throw new Error('Solo se pueden eliminar elementos aceptados');
+        throw new Error('Solo se pueden eliminar vacantes aceptadas o cerradas');
     }
+};
+
+// Actualización parcial de vacante (PATCH)
+const patchPosition = async (practicePositionID, updateData) => {
+    if (!updateData || Object.keys(updateData).length === 0) {
+        throw new Error("No se proporcionaron campos para actualizar");
+    }
+
+    const validStatuses = ['Pendiente', 'Aceptado', 'Rechazado', 'Inactiva', 'Cerrado'];
+
+    if (updateData.status && !validStatuses.includes(updateData.status)) {
+        throw new Error("Estatus no válido");
+    }
+
+    const keys = Object.keys(updateData);
+    const values = [];
+    const setClause = keys.map(key => {
+        values.push(updateData[key]);
+        return `${key} = ?`;
+    }).join(", ");
+
+    const query = `
+        UPDATE PracticePosition
+        SET ${setClause}
+        WHERE practicePositionID = ? AND recordStatus = 'Activo'
+    `;
+
+    values.push(practicePositionID);
+    const [result] = await pool.query(query, values);
+
+    if (result.affectedRows === 0) {
+        throw new Error("No se pudo actualizar la vacante o ya fue eliminada");
+    }
+
+    return { message: "Vacante actualizada correctamente" };
 };
 
 // TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
@@ -133,5 +169,6 @@ module.exports = {
     getPositionsByStatus,
     createPosition,
     deletePosition,
+    patchPosition,
     deletePositionAndApplications
 };
