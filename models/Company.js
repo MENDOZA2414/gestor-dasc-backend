@@ -11,10 +11,16 @@ const registerCompany = async (companyData) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        
+
+        // Asegurar que status no sea vacío
+        if (!companyData.status || companyData.status.trim() === "") {
+            companyData.status = "Pendiente";
+        }
+      
         // Validaciones de entrada
         validateCompanyData(companyData);
-
+ 
+        
         const {
             email, password, phone,
             rfc, fiscalName, companyName, address, externalNumber,

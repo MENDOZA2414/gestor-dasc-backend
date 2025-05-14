@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const companyController = require('../controllers/CompanyController');
+const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 
 // Obtener todas las entidades receptoras.
 router.get('/all', companyController.getAllCompanies);
@@ -14,7 +15,7 @@ router.get('/', companyController.getCompaniesByStatus);
 router.get('/:id', companyController.getCompanyByID);
 
 // Registrar una nueva entidad receptora.
-router.post('/register', companyController.registerCompany);
+router.post('/register', profileUploadMiddleware, companyController.registerCompany);
 
 // Eliminar una entidad receptora por ID.
 router.delete('/:companyID', companyController.deleteCompany);
