@@ -5,7 +5,11 @@ const ExternalAssessor = require('../models/ExternalAssessor');
 // Registrar un asesor externo
 const registerExternalAssessorController = async (req, res) => {
     try {
-        const assessorData = req.body;
+        const assessorData = {
+            ...req.body,
+            profilePhotoName: req.generatedFileName || null,
+            profilePhotoBuffer: req.bufferFile || null
+        };
 
         if (!assessorData || Object.keys(assessorData).length === 0) {
             return res.status(400).json({ message: 'Datos del asesor externo requeridos' });
@@ -15,7 +19,7 @@ const registerExternalAssessorController = async (req, res) => {
         res.status(201).json(result);
     } catch (error) {
         console.error('Error en registro:', error.message);
-        res.status(500).json({ message: 'No se pudo registrar el asesor externo' });
+        res.status(500).json({ message: 'No se pudo registrar el asesor externo', error: error.message });
     }
 };
 
@@ -65,7 +69,7 @@ const getExternalAssessorsByCompanyIDController = async (req, res) => {
 };
 
 // Actualizar un asesor externo
-const updateExternalAssessorController = async (req, res) => {
+const patchExternalAssessorController = async (req, res) => {
     try {
         const { externalAssessorID } = req.params;
         const updateData = req.body;
@@ -78,13 +82,17 @@ const updateExternalAssessorController = async (req, res) => {
             return res.status(400).json({ message: 'Datos de actualización requeridos' });
         }
 
-        const result = await ExternalAssessor.updateExternalAssessor(externalAssessorID, updateData);
+        const result = await ExternalAssessor.patchExternalAssessor(externalAssessorID, updateData);
         res.status(200).json(result);
     } catch (error) {
-        console.error('Error en actualización:', error.message);
-        res.status(500).json({ message: 'No se pudo actualizar el asesor externo' });
+        console.error('Error al actualizar asesor externo:', error.message);
+        res.status(500).json({
+            message: 'No se pudo actualizar el asesor externo',
+            error: error.message
+        });
     }
 };
+
 
 // Eliminar un asesor externo
 const deleteExternalAssessorController = async (req, res) => {
@@ -108,6 +116,6 @@ module.exports = {
     getExternalAssessorByIDController,
     getAllExternalAssessorsController,
     getExternalAssessorsByCompanyIDController,
-    updateExternalAssessorController,
+    patchExternalAssessorController,
     deleteExternalAssessorController,
 };

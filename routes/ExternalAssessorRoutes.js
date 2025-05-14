@@ -3,9 +3,10 @@
 const express = require('express');
 const router = express.Router();
 const externalAssessorController = require('../controllers/ExternalAssessorController');
+const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 
 // Registrar un asesor externo
-router.post('/register', externalAssessorController.registerExternalAssessorController);
+router.post('/register', profileUploadMiddleware, externalAssessorController.registerExternalAssessorController);
 
 // Obtener todos los asesores externos
 router.get('/all', externalAssessorController.getAllExternalAssessorsController);
@@ -17,7 +18,7 @@ router.get('/:id', externalAssessorController.getExternalAssessorByIDController)
 router.get('/company/:companyID', externalAssessorController.getExternalAssessorsByCompanyIDController);
 
 // Actualizar un asesor externo
-router.put('/:externalAssessorID', externalAssessorController.updateExternalAssessorController);
+router.patch('/:externalAssessorID', externalAssessorController.patchExternalAssessorController);
 
 // Eliminar un asesor externo
 router.delete('/:externalAssessorID', externalAssessorController.deleteExternalAssessorController);

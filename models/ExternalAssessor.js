@@ -2,6 +2,8 @@
 
 const pool = require('../config/db');
 const { registerUser } = require('./User');
+const uploadToFTP = require('../utils/FtpUploader');
+const createFtpStructure = require('../utils/FtpStructureBuilder');
 
 // Registrar un asesor externo
 const registerExternalAssessor = async (assessorData) => {
@@ -9,27 +11,60 @@ const registerExternalAssessor = async (assessorData) => {
     try {
         await connection.beginTransaction();
 
-        const { email, password, phone, firstName, firstLastName, secondLastName, companyID, professionID, position } = assessorData;
+        const {
+            email, password, phone,
+            firstName, firstLastName, secondLastName,
+            companyID, professionID, position,
+            profilePhotoName, profilePhotoBuffer
+        } = assessorData;
 
-        // Validaciones previas
         if (!email || !password || !firstName || !firstLastName || !companyID) {
             throw new Error('Datos obligatorios faltantes para registrar el asesor externo');
         }
 
-        // Registrar el usuario en la tabla 'User'
-        const userID = await registerUser(connection, email, password, phone, 2); // RoleID: 2 (asesor externo)
+        const userID = await registerUser(connection, email, password, phone, 2, 3); // roleID: 2, userTypeID: 3
 
-        // Insertar en la tabla 'ExternalAssessor'
-        const query = `
+        // Insertar con photo temporal
+        const insertQuery = `
             INSERT INTO ExternalAssessor (
-                userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phone
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                userID, companyID, firstName, firstLastName, secondLastName,
+                professionID, position, phone, photo, ExternalAssessorStatus
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.query(query, [
-            userID, companyID, firstName, firstLastName, secondLastName, professionID, position, phone
+        await connection.query(insertQuery, [
+            userID, companyID, firstName, firstLastName, secondLastName,
+            professionID, position, phone, null, 'Activo'
         ]);
 
+        const [[{ externalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS externalAssessorID");
+
         await connection.commit();
+
+        // Crear estructura FTP
+        await createFtpStructure("externalAssessor", externalAssessorID);
+
+        // Subir foto de perfil si existe
+        if (profilePhotoBuffer && profilePhotoName) {
+            const safeFileName = profilePhotoName
+                .replace(/\s+/g, "_")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^\w.-]/g, "");
+
+            const ftpPath = `/images/profiles/${safeFileName}`;
+            const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
+
+            try {
+                await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
+                await pool.query("UPDATE ExternalAssessor SET photo = ? WHERE externalAssessorID = ?", [
+                    photoUrl,
+                    externalAssessorID
+                ]);
+            } catch (err) {
+                console.warn("Asesor externo registrado, pero falló la subida de la foto:", err.message);
+            }
+        }
+
         return { message: 'Asesor externo registrado exitosamente' };
     } catch (error) {
         await connection.rollback();
@@ -88,28 +123,34 @@ const getExternalAssessorsByCompanyID = async (companyID) => {
 };
 
 // Actualizar un asesor externo
-const updateExternalAssessor = async (externalAssessorID, updateData) => {
-    const { firstName, firstLastName, secondLastName, professionID, position } = updateData;
+const patchExternalAssessor = async (externalAssessorID, updateData) => {
+    if (!updateData || Object.keys(updateData).length === 0) {
+        throw new Error("No se proporcionaron campos para actualizar");
+    }
+
+    const keys = Object.keys(updateData);
+    const values = [];
+
+    const setClause = keys.map(key => {
+        values.push(updateData[key]);
+        return `${key} = ?`;
+    }).join(", ");
 
     const query = `
         UPDATE ExternalAssessor
-        SET firstName = ?, firstLastName = ?, secondLastName = ?, professionID = ?, position = ?
-        WHERE externalAssessorID = ? AND recordStatus = "Activo"
+        SET ${setClause}
+        WHERE externalAssessorID = ? AND recordStatus = 'Activo'
     `;
-    const [result] = await pool.query(query, [
-        firstName, 
-        firstLastName, 
-        secondLastName, 
-        professionID, 
-        position, 
-        externalAssessorID
-    ]);
+
+    values.push(externalAssessorID);
+
+    const [result] = await pool.query(query, values);
 
     if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar el asesor externo o ya fue eliminado');
+        throw new Error("No se pudo actualizar el asesor externo o ya fue eliminado");
     }
 
-    return { message: 'Asesor externo actualizado exitosamente' };
+    return { message: "Asesor externo actualizado correctamente" };
 };
 
 // Eliminar lógicamente un asesor externo
@@ -154,6 +195,6 @@ module.exports = {
     getExternalAssessorByID,
     getAllExternalAssessors,
     getExternalAssessorsByCompanyID,
-    updateExternalAssessor,
+    patchExternalAssessor,
     deleteExternalAssessor
 };
