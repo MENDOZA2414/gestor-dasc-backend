@@ -1,5 +1,21 @@
 const pool = require('../config/db');
 
+// Creación de vacante
+const createPosition = async (positionData) => {
+    const { positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID } = positionData;
+
+    const insertQuery = `
+        INSERT INTO PracticePosition (positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const [result] = await pool.query(insertQuery, [positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID]);
+
+    const selectQuery = `SELECT * FROM PracticePosition WHERE practicePositionID = ?`;
+    const [result2] = await pool.query(selectQuery, [result.insertId]);
+    return result2[0];
+};
+
+// Obtener vacante por ID
 const getPositionByID = async (practicePositionID) => {
     const query = 'SELECT * FROM PracticePosition WHERE practicePositionID = ? AND recordStatus = "Activo"';
     const [result] = await pool.query(query, [practicePositionID]);
@@ -10,6 +26,7 @@ const getPositionByID = async (practicePositionID) => {
     }
 };
 
+// Obtener vacantes por ID de empresa
 const getPositionsByCompanyID = async (companyID) => {
     const query = `
         SELECT pp.*, 
@@ -28,6 +45,7 @@ const getPositionsByCompanyID = async (companyID) => {
     return results;
 };
 
+// Obtener todas las vacantes con paginación
 const getAllPositions = async (page, limit) => {
     const start = (page - 1) * limit;
     const query = `
@@ -48,6 +66,7 @@ const getAllPositions = async (page, limit) => {
     return results;
 };
 
+// Obtener vacantes por estatus
 const getPositionsByStatus = async (status) => {
     let query = `
       SELECT pp.*, 
@@ -77,21 +96,7 @@ const getPositionsByStatus = async (status) => {
     return results;
 };
 
-const createPosition = async (positionData) => {
-    const { positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID } = positionData;
-
-    const insertQuery = `
-        INSERT INTO PracticePosition (positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await pool.query(insertQuery, [positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID]);
-
-    const selectQuery = `SELECT * FROM PracticePosition WHERE practicePositionID = ?`;
-    const [result2] = await pool.query(selectQuery, [result.insertId]);
-    return result2[0];
-};
-
-// Eliminación lógica
+// Eliminación vacante
 const deletePosition = async (practicePositionID) => {
     const checkStatusQuery = 'SELECT status FROM PracticePosition WHERE practicePositionID = ?';
     const [result] = await pool.query(checkStatusQuery, [practicePositionID]);
@@ -141,19 +146,28 @@ const patchPosition = async (practicePositionID, updateData) => {
 };
 
 // TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
+// Eliminación de vacante y postulaciones
 const deletePositionAndApplications = async (positionID) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const deleteApplicationsQuery = 'DELETE FROM StudentApplication WHERE practicePositionID = ?';
-        await connection.query(deleteApplicationsQuery, [positionID]);
+        const updateApplicationsQuery = `
+            UPDATE StudentApplication 
+            SET recordStatus = 'Eliminado' 
+            WHERE practicePositionID = ? AND recordStatus = 'Activo'
+        `;
+        await connection.query(updateApplicationsQuery, [positionID]);
 
-        const deletePositionQuery = 'DELETE FROM PracticePosition WHERE practicePositionID = ?';
-        await connection.query(deletePositionQuery, [positionID]);
+        const updatePositionQuery = `
+            UPDATE PracticePosition 
+            SET recordStatus = 'Eliminado' 
+            WHERE practicePositionID = ? AND recordStatus = 'Activo'
+        `;
+        await connection.query(updatePositionQuery, [positionID]);
 
         await connection.commit();
-        return { message: 'Vacante y sus postulaciones eliminadas con éxito' };
+        return { message: 'Vacante y sus postulaciones marcadas como eliminadas' };
     } catch (error) {
         await connection.rollback();
         throw error;
@@ -161,6 +175,7 @@ const deletePositionAndApplications = async (positionID) => {
         connection.release();
     }
 };
+
 
 module.exports = {
     getPositionByID,

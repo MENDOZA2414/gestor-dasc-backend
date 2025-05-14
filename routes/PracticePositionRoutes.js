@@ -17,10 +17,13 @@ router.get('/:id', practicePositionController.getPositionByID);
 // Ruta para crear una nueva vacante de práctica
 router.post('/create', practicePositionController.createPosition);
 
+// Ruta para actualizar parcialmente una vacante
+router.patch('/:id', practicePositionController.patchPositionController);
+
 // Eliminar vacante
 router.delete('/:practicePositionID', practicePositionController.deletePosition);
 
-// Endpoint para eliminar una vacante junto con sus postulaciones
+// Eliminar una vacante junto con sus postulaciones
 router.delete('/eliminar/:id', practicePositionController.deletePositionAndApplications);
 
 module.exports = router;
