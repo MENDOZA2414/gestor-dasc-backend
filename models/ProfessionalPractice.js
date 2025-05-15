@@ -1,5 +1,33 @@
 const pool = require('../config/db');
 
+// Creación de práctica profesional
+const createPractice = async ({
+  studentID,
+  companyID,
+  externalAssessorID,
+  positionTitle,
+  startDate,
+  endDate
+}) => {
+  const insertQuery = `
+    INSERT INTO ProfessionalPractice (
+      studentID, companyID, externalAssessorID, positionTitle,
+      startDate, endDate, status, creationDate, recordStatus
+    ) VALUES (?, ?, ?, ?, ?, ?, 'Started', NOW(), 'Activo')
+  `;
+
+  await pool.query(insertQuery, [
+    studentID,
+    companyID,
+    externalAssessorID,
+    positionTitle,
+    startDate,
+    endDate
+  ]);
+
+  return { message: 'Práctica profesional creada correctamente' };
+};
+
 // Obtener la práctica profesional registrada de un estudiante
 const getPracticeByStudentID = async (studentID) => {
   const query = `
@@ -135,7 +163,7 @@ const getStudentPracticeByAssessor = async (internalAssessorID, studentID) => {
     return results.length > 0 ? results[0] : null;
 };
 
-// Obtener todas las prácticas con opción de filtrar por carrera o estado
+// Obtener todas las prácticas con opción de filtrar por carrera o estado 
 const getAllPractices = async (career = null, status = null) => {
     let query = `
       SELECT 
@@ -226,22 +254,40 @@ const getStudentsByCompanyID = async (companyID) => {
 };
 
 // Editar una práctica profesional existente
-const updatePractice = async (practiceID, updateData) => {
-  const { startDate, endDate, status, positionTitle } = updateData;
+const patchPractice = async (practiceID, updateData) => {
+  const fields = [];
+  const values = [];
+
+  if (updateData.startDate) {
+    fields.push("startDate = ?");
+    values.push(updateData.startDate);
+  }
+  if (updateData.endDate) {
+    fields.push("endDate = ?");
+    values.push(updateData.endDate);
+  }
+  if (updateData.status) {
+    fields.push("status = ?");
+    values.push(updateData.status);
+  }
+  if (updateData.positionTitle) {
+    fields.push("positionTitle = ?");
+    values.push(updateData.positionTitle);
+  }
+
+  if (fields.length === 0) {
+    throw new Error("No se proporcionaron campos válidos para actualizar");
+  }
 
   const query = `
     UPDATE ProfessionalPractice
-    SET startDate = ?, endDate = ?, status = ?, positionTitle = ?
+    SET ${fields.join(", ")}
     WHERE practiceID = ? AND recordStatus = 'Activo'
   `;
 
-  const [result] = await pool.query(query, [
-    startDate,
-    endDate,
-    status,
-    positionTitle,
-    practiceID
-  ]);
+  values.push(practiceID);
+
+  const [result] = await pool.query(query, values);
 
   if (result.affectedRows === 0) {
     throw new Error('No se pudo actualizar la práctica profesional');
@@ -263,6 +309,7 @@ const deletePractice = async (practiceID) => {
 };
 
 module.exports = {
+    createPractice,
     getPracticeByStudentID,
     getPracticesByCompanyID,
     getPracticesByExternalAssessorID,
@@ -271,6 +318,6 @@ module.exports = {
     getAllPractices,
     getStudentsByExternalAssessorID,
     getStudentsByCompanyID,
-    updatePractice,
+    patchPractice,
     deletePractice
 };

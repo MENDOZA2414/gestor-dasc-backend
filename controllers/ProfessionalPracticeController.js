@@ -139,18 +139,19 @@ exports.getStudentsByCompanyID = async (req, res) => {
 };
 
 // Actualizar información de una práctica profesional
-exports.updatePractice = async (req, res) => {
+exports.patchPractice = async (req, res) => {
   try {
     const { practiceID } = req.params;
     const updateData = req.body;
 
-    const result = await ProfessionalPractice.updatePractice(practiceID, updateData);
+    const result = await ProfessionalPractice.patchPractice(practiceID, updateData);
     res.status(200).json(result);
   } catch (error) {
     console.error('Error al actualizar práctica:', error.message);
     res.status(500).json({ message: 'No se pudo actualizar la práctica profesional', error: error.message });
   }
 };
+
 
 // Eliminar lógicamente una práctica profesional
 exports.deletePractice = async (req, res) => {

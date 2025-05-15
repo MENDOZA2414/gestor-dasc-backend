@@ -1,4 +1,5 @@
 const StudentApplication = require('../models/StudentApplication');
+const ProfessionalPractice = require('../models/ProfessionalPractice');
 const uploadToFTP = require('../utils/FtpUploader');
 const path = require('path');
 const db = require('../config/db');
@@ -280,14 +281,20 @@ exports.patchApplicationController = async (req, res) => {
 
     if (updateData.status && ["Aceptado", "Rechazado"].includes(updateData.status)) {
       const [[data]] = await db.query(`
-        SELECT SA.status, SA.coverLetterFileName, SA.coverLetterFilePath, SA.practicePositionID, S.controlNumber, C.companyID
+        SELECT 
+          SA.studentID,
+          SA.coverLetterFileName,
+          SA.coverLetterFilePath,
+          SA.practicePositionID,
+          S.controlNumber,
+          P.positionName,
+          C.companyID
         FROM StudentApplication SA
         JOIN Student S ON SA.studentID = S.studentID
         JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
         JOIN Company C ON P.companyID = C.companyID
         WHERE SA.applicationID = ?
-      `, [applicationID]);
-      
+      `, [applicationID]);      
 
       if (!data) {
         return res.status(404).json({ message: "Datos de postulación no encontrados" });
@@ -303,18 +310,14 @@ exports.patchApplicationController = async (req, res) => {
         if (currentStudents >= maxStudents) {
           return res.status(400).json({ message: "La vacante ya alcanzó su máximo de estudiantes aceptados" });
         }
-
-        // Aumentar currentStudents en la vacante
-        await db.query(
-          "UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?",
-          [data.practicePositionID]
-        );
       }
 
       // Renombrar archivo en FTP
       // Capturar estado original antes del update
-      const originalStatus = data.status;
-
+      const [[{ status: originalStatus }]] = await db.query(`
+        SELECT status FROM StudentApplication WHERE applicationID = ?
+      `, [applicationID]);
+      
       // Construir rutas de archivos
       const oldFileName = `carta_presentacion_${data.controlNumber}_${originalStatus}.pdf`;
       const oldPath = `/practices/company/company_${data.companyID}/documents/${oldFileName}`;
@@ -330,6 +333,10 @@ exports.patchApplicationController = async (req, res) => {
         client.close();
       } catch (ftpError) {
         console.warn("No se pudo renombrar el archivo en FTP:", ftpError.message);
+        return res.status(500).json({
+          message: "No se pudo renombrar el archivo. La operación fue cancelada.",
+          error: ftpError.message
+        });
       }
 
       // Actualizar campos en la BD
@@ -346,6 +353,44 @@ exports.patchApplicationController = async (req, res) => {
       updateData.statusHistory = statusHistory
         ? `${statusHistory}, ${newEntry}`
         : newEntry;
+
+      // Crear práctica profesional solo si fue aceptado y no existe ya una
+      if (updateData.status === "Aceptado") {
+        const [[existingPractice]] = await db.query(`
+          SELECT practiceID FROM ProfessionalPractice
+          WHERE studentID = ? AND recordStatus = 'Activo'
+        `, [data.studentID]);
+
+        if (!existingPractice) {
+          // Obtener fechas de la vacante
+          const [[position]] = await db.query(`
+            SELECT startDate, endDate, positionName, externalAssessorID
+            FROM PracticePosition
+            WHERE practicePositionID = ?
+          `, [data.practicePositionID]);
+
+          const positionTitle = position?.positionName || 'Practicante';
+          const startDate = position?.startDate || new Date().toISOString().split("T")[0];
+          const endDate = position?.endDate || null;
+
+          await ProfessionalPractice.createPractice({
+            studentID: data.studentID,
+            companyID: data.companyID,
+            externalAssessorID: position?.externalAssessorID || null,
+            positionTitle,
+            startDate,
+            endDate
+          });
+
+          // Aumentar currentStudents en la vacante
+          await db.query(
+            "UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?",
+            [data.practicePositionID]
+          );
+
+          console.log("Práctica profesional creada automáticamente desde postulación aceptada.");
+        }
+      }
     }
 
     const result = await StudentApplication.patchApplication(applicationID, updateData);

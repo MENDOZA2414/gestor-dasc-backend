@@ -3,7 +3,7 @@ const router = express.Router();
 const professionalPracticeController = require('../controllers/ProfessionalPracticeController');
 
 // Obtener todas las prácticas con filtros opcionales (uso administrativo)
-router.get('/all', professionalPracticeController.getAllPractices);
+router.get('/', professionalPracticeController.getAllPractices);
 
 // Obtener la práctica profesional registrada de un estudiante
 router.get('/student/:studentID', professionalPracticeController.getPracticeByStudentID);
@@ -27,7 +27,7 @@ router.get('/students/external-assessor/:externalAssessorID', professionalPracti
 router.get('/students/company/:companyID', professionalPracticeController.getStudentsByCompanyID);
 
 // Actualizar una práctica profesional
-router.put('/:practiceID', professionalPracticeController.updatePractice);
+router.patch('/:practiceID', professionalPracticeController.patchPractice);
 
 // Eliminar lógicamente una práctica profesional
 router.delete('/:practiceID', professionalPracticeController.deletePractice);
