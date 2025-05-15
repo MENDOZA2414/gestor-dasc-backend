@@ -34,14 +34,17 @@ const getCoverLetterByID = async (applicationID) => {
 
 // Verificar si un estudiante ya se ha postulado a una vacante específica
 const verifyStudentApplication = async (studentID, positionID) => {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM StudentApplication
-      WHERE studentID = ? AND practicePositionID = ? AND recordStatus = 'Activo'
-    `;
-    const [results] = await pool.query(query, [studentID, positionID]);
-    return results[0].count > 0;
+  const query = `
+    SELECT COUNT(*) as count
+    FROM StudentApplication
+    WHERE studentID = ? AND practicePositionID = ?
+      AND recordStatus = 'Activo'
+      AND status != 'Rechazado'
+  `;
+  const [results] = await pool.query(query, [studentID, positionID]);
+  return results[0].count > 0;
 };
+
 
 // Obtener todas las postulaciones realizadas por un estudiante
 const getApplicationsByStudentID = async (studentID) => {
@@ -58,17 +61,6 @@ const getApplicationsByStudentID = async (studentID) => {
     `;
     const [results] = await pool.query(query, [studentID]);
     return results;
-};
-
-// Eliminar lógicamente una postulación por ID
-const rejectApplication = async (applicationID) => {
-    const query = `
-      UPDATE StudentApplication
-      SET recordStatus = 'Eliminado'
-      WHERE applicationID = ? AND recordStatus = 'Activo'
-    `;
-    const [result] = await pool.query(query, [applicationID]);
-    return result.affectedRows > 0;
 };
 
 // Registrar una nueva postulación con archivo en FTP
@@ -164,7 +156,6 @@ module.exports = {
     getCoverLetterByID,
     verifyStudentApplication,
     getApplicationsByStudentID,
-    rejectApplication,
     saveApplication,
     patchApplication,
     getApplicationsByCompanyID

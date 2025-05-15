@@ -16,11 +16,6 @@ router.get('/check/:studentID/:positionID', studentApplicationController.verifyS
 // Ruta para obtener postulaciones por ID de alumno
 router.get('/student/:studentID', studentApplicationController.getApplicationsByStudentID);
 
-// Ruta para rechazar una postulación
-router.post('/reject', studentApplicationController.rejectApplication);
-
-// Ruta para aceptar una postulación
-router.post('/accept', studentApplicationController.acceptApplication);
 
 // Ruta para registrar una nueva postulación con subida de archivo a FTP
 router.post('/register', documentUpload, studentApplicationController.registerApplication);
@@ -28,7 +23,7 @@ router.post('/register', documentUpload, studentApplicationController.registerAp
 // Obtener todas las postulaciones recibidas por una entidad
 router.get('/company/:companyID', studentApplicationController.getApplicationsByCompanyID);
 
-// Ruta para actualizar una postulación parcialmente
+// Actualizar una postulación (aceptar o rechazar)
 router.patch('/update/:applicationID', studentApplicationController.patchApplicationController);
 
 module.exports = router;

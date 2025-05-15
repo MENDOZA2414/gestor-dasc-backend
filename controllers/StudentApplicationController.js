@@ -65,38 +65,6 @@ exports.getApplicationsByStudentID = async (req, res) => {
     }
 };
 
-// Rechazar (eliminar lógicamente) una postulación por ID
-exports.rejectApplication = async (req, res) => {
-    try {
-      const { applicationID } = req.body;
-      const result = await StudentApplication.rejectApplication(applicationID);
-
-      if (!result) {
-        res.status(404).json({ message: 'No se encontró la postulación' });
-      } else {
-        res.status(200).json({ message: 'Postulación marcada como eliminada' });
-      }
-    } catch (error) {
-      console.error('Error al eliminar la postulación:', error.message);
-      res.status(500).json({ message: 'Error en el servidor al eliminar la postulación', error: error.message });
-    }
-};
-
-// Aceptar una postulación
-exports.acceptApplication = async (req, res) => {
-  try {
-    const { applicationID } = req.body;
-    const result = await StudentApplication.acceptApplication(applicationID);
-    res.status(201).json(result);
-  } catch (error) {
-    console.error('Error al aceptar postulación:', error.message);
-    res.status(500).json({ 
-      message: 'Error en el servidor al registrar la práctica profesional',
-      error: error.message
-    });
-  }
-};
-
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
   try {
@@ -107,10 +75,49 @@ exports.registerApplication = async (req, res) => {
       return res.status(400).json({ message: 'Faltan datos: studentID, practicePositionID, companyID, controlNumber o archivo' });
     }
 
+    // Verificar si la vacante ya está llena (por cupo)
+    const [[{ currentStudents, maxStudents }]] = await db.query(
+      "SELECT currentStudents, maxStudents FROM PracticePosition WHERE practicePositionID = ?",
+      [practicePositionID]
+    );
+
+    if (currentStudents >= maxStudents) {
+      return res.status(400).json({ message: 'La vacante ya no acepta más postulaciones, cupo lleno' });
+    }
+    
+    // Verificar existencia previa (rechazados sí se permiten)
+    const alreadyApplied = await StudentApplication.verifyStudentApplication(studentID, practicePositionID);
+    if (alreadyApplied) {
+      return res.status(400).json({ message: 'Ya existe una postulación activa para esta vacante' });
+    }
+
+    // Ruta y nombre del nuevo archivo
     const fileName = `carta_presentacion_${controlNumber}_Pendiente.pdf`;
     const ftpPath = `/practices/company/company_${companyID}/documents/${fileName}`;
     const fullURL = `https://uabcs.online/practicas${ftpPath}`;
 
+    try {
+      const client = new ftp.Client();
+      await client.access(ftpConfig);
+      await client.remove(ftpPath); // Si ya existe, se elimina
+      client.close();
+    } catch (ftpError) {
+      console.warn("No se eliminó archivo previo (posiblemente no existía):", ftpError.message);
+    }
+
+    // Eliminar carta anterior rechazada si existe (mismo alumno y vacante)
+    const rejectedFileName = `carta_presentacion_${controlNumber}_Rechazado.pdf`;
+    const rejectedPath = `/practices/company/company_${companyID}/documents/${rejectedFileName}`;
+    try {
+      const client = new ftp.Client();
+      await client.access(ftpConfig);
+      await client.remove(rejectedPath); // eliminar archivo anterior
+      client.close();
+    } catch (ftpError) {
+      console.warn("Archivo rechazado anterior no encontrado o ya eliminado:", ftpError.message);
+    }
+
+    // Subir nuevo archivo con _Pendiente
     try {
       await uploadToFTP(file.buffer, ftpPath, { overwrite: false });
     } catch (ftpError) {
@@ -120,6 +127,7 @@ exports.registerApplication = async (req, res) => {
       });
     }
 
+    // Guardar postulación en la BD
     try {
       await StudentApplication.saveApplication({
         studentID,
@@ -128,6 +136,7 @@ exports.registerApplication = async (req, res) => {
         coverLetterFilePath: fullURL
       });
     } catch (dbError) {
+      // Si falla la BD, eliminar el archivo subido para evitar basura en FTP
       try {
         const client = new ftp.Client();
         await client.access(ftpConfig);
@@ -152,6 +161,7 @@ exports.registerApplication = async (req, res) => {
   }
 };
 
+
 // Obtener todas las postulaciones recibidas por una empresa (entidad receptora)
 exports.getApplicationsByCompanyID = async (req, res) => {
   try {
@@ -169,7 +179,7 @@ exports.getApplicationsByCompanyID = async (req, res) => {
   }
 };
 
-// Actualizar una postulación existente
+// Actualizar una postulación existente (aceptar o rechazar con renombrado y validación de cupo)
 exports.patchApplicationController = async (req, res) => {
   try {
     const applicationID = req.params.applicationID;
@@ -180,24 +190,64 @@ exports.patchApplicationController = async (req, res) => {
     }
 
     if (updateData.status && ["Aceptado", "Rechazado"].includes(updateData.status)) {
-      const [[data]] = await db.query("SELECT SA.coverLetterFileName, SA.coverLetterFilePath, SA.practicePositionID, S.controlNumber, C.companyID FROM StudentApplication SA JOIN Student S ON SA.studentID = S.studentID JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID JOIN Company C ON P.companyID = C.companyID WHERE SA.applicationID = ?", [applicationID]);
+      const [[data]] = await db.query(`
+        SELECT SA.status, SA.coverLetterFileName, SA.coverLetterFilePath, SA.practicePositionID, S.controlNumber, C.companyID
+        FROM StudentApplication SA
+        JOIN Student S ON SA.studentID = S.studentID
+        JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+        JOIN Company C ON P.companyID = C.companyID
+        WHERE SA.applicationID = ?
+      `, [applicationID]);
+      
 
       if (!data) {
         return res.status(404).json({ message: "Datos de postulación no encontrados" });
       }
 
-      const oldPath = data.coverLetterFilePath.replace("https://uabcs.online/practicas", "");
-      const oldName = path.basename(oldPath);
-      const newName = `carta_presentacion_${data.controlNumber}_${updateData.status}.pdf`;
-      const newPath = `/company/company_${data.companyID}/documents/${newName}`;
+      // Validar cupo antes de aceptar
+      if (updateData.status === "Aceptado") {
+        const [[{ currentStudents, maxStudents }]] = await db.query(
+          "SELECT currentStudents, maxStudents FROM PracticePosition WHERE practicePositionID = ?",
+          [data.practicePositionID]
+        );
 
-      const client = new ftp.Client();
-      await client.access(ftpConfig);
-      await client.rename(oldPath, newPath);
-      client.close();
+        if (currentStudents >= maxStudents) {
+          return res.status(400).json({ message: "La vacante ya alcanzó su máximo de estudiantes aceptados" });
+        }
 
-      updateData.coverLetterFileName = newName;
+        // Aumentar currentStudents en la vacante
+        await db.query(
+          "UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?",
+          [data.practicePositionID]
+        );
+      }
+
+      // Renombrar archivo en FTP
+      // Capturar estado original antes del update
+      const originalStatus = data.status;
+
+      // Construir rutas de archivos
+      const oldFileName = `carta_presentacion_${data.controlNumber}_${originalStatus}.pdf`;
+      const oldPath = `/practices/company/company_${data.companyID}/documents/${oldFileName}`;
+
+      const newFileName = `carta_presentacion_${data.controlNumber}_${updateData.status}.pdf`;
+      const newPath = `/practices/company/company_${data.companyID}/documents/${newFileName}`;
+
+      // Intentar renombrar el archivo en FTP
+      try {
+        const client = new ftp.Client();
+        await client.access(ftpConfig);
+        await client.rename(oldPath, newPath);
+        client.close();
+      } catch (ftpError) {
+        console.warn("⚠️ No se pudo renombrar el archivo en FTP:", ftpError.message);
+        // continuar sin romper el flujo
+      }
+
+      // Actualizar campos en la BD
+      updateData.coverLetterFileName = newFileName;
       updateData.coverLetterFilePath = `https://uabcs.online/practicas${newPath}`;
+
     }
 
     const result = await StudentApplication.patchApplication(applicationID, updateData);
