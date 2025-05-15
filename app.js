@@ -82,10 +82,10 @@ app.use('/api/students', studentRoutes);  // Rutas para alumnos
 app.use('/api/internalAssessors', internalAssessorRoutes);  // Rutas para asesores internos
 app.use('/api/externalAssessors', externalAssessorRoutes);  // Rutas para asesores externos
 app.use('/api/companies', companyRoutes);  // Rutas para entidades receptoras
-app.use('/api/applications', studentApplicationRoutes);  // Rutas para postulaciones
+app.use('/api/student-applications', studentApplicationRoutes);  // Rutas para postulaciones
 app.use('/api/practicePositions', practicePositionRoutes);  // Rutas para vacantes
 app.use('/api/professional-practices', professionalPracticeRoutes);  // Rutas para prácticas profesionales
-app.use('/api/studentDocumentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
+app.use('/api/student-documentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
 app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 
 // Manejo de errores

@@ -72,25 +72,23 @@ const rejectApplication = async (applicationID) => {
 };
 
 // Registrar una nueva postulación con archivo en FTP
-const saveApplication = async ({ studentID, practicePositionID, companyID, controlNumber, bufferFile }) => {
+const saveApplication = async ({ studentID, practicePositionID, coverLetterFileName, coverLetterFilePath }) => {
   const alreadyApplied = await verifyStudentApplication(studentID, practicePositionID);
   if (alreadyApplied) {
     throw new Error("Ya existe una postulación activa para esta vacante");
   }
-
-  const fileName = `carta_presentacion_${controlNumber}_Pendiente.pdf`;
-  const ftpPath = `/company/company_${companyID}/documents/${fileName}`;
-  const publicUrl = `https://uabcs.online/practicas${ftpPath}`;
-
-  // Subir archivo al FTP
-  await uploadToFTP(bufferFile, ftpPath, { overwrite: true });
 
   const insertQuery = `
     INSERT INTO StudentApplication 
     (studentID, practicePositionID, status, coverLetterFileName, coverLetterFilePath, timestamp, recordStatus)
     VALUES (?, ?, 'Pendiente', ?, ?, NOW(), 'Activo')
   `;
-  await pool.query(insertQuery, [studentID, practicePositionID, fileName, publicUrl]);
+  await pool.query(insertQuery, [
+    studentID,
+    practicePositionID,
+    coverLetterFileName,
+    coverLetterFilePath
+  ]);
 };
 
 // Actualizar una postulación existente

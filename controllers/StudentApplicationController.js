@@ -2,7 +2,8 @@ const StudentApplication = require('../models/StudentApplication');
 const uploadToFTP = require('../utils/FtpUploader');
 const path = require('path');
 const db = require('../config/db');
-const buildDocumentName = require("../utils/DocumentNameBuilder");
+const ftp = require("basic-ftp");
+const ftpConfig = require("../config/ftpConfig");
 
 // Obtener todas las postulaciones por ID de vacante
 exports.getApplicationsByPositionID = async (req, res) => {
@@ -107,18 +108,36 @@ exports.registerApplication = async (req, res) => {
     }
 
     const fileName = `carta_presentacion_${controlNumber}_Pendiente.pdf`;
-    const ftpPath = `/company/company_${companyID}/documents/${fileName}`;
+    const ftpPath = `/practices/company/company_${companyID}/documents/${fileName}`;
     const fullURL = `https://uabcs.online/practicas${ftpPath}`;
 
-    await uploadToFTP(file.buffer, ftpPath);
+    try {
+      await uploadToFTP(file.buffer, ftpPath, { overwrite: false });
+    } catch (ftpError) {
+      return res.status(500).json({
+        message: 'Error al subir el archivo al servidor FTP',
+        error: ftpError.message
+      });
+    }
 
-    await StudentApplication.saveApplication({
-      studentID,
-      practicePositionID,
-      companyID,
-      controlNumber,
-      bufferFile: file.buffer
-    });
+    try {
+      await StudentApplication.saveApplication({
+        studentID,
+        practicePositionID,
+        coverLetterFileName: fileName,
+        coverLetterFilePath: fullURL
+      });
+    } catch (dbError) {
+      try {
+        const client = new ftp.Client();
+        await client.access(ftpConfig);
+        await client.remove(ftpPath);
+        client.close();
+      } catch (cleanupError) {
+        console.warn("Error al limpiar archivo tras fallo en BD:", cleanupError.message);
+      }
+      throw dbError;
+    }
 
     res.status(201).json({
       message: 'Postulación registrada correctamente',
@@ -158,6 +177,27 @@ exports.patchApplicationController = async (req, res) => {
 
     if (!updateData || Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No se proporcionaron campos para actualizar' });
+    }
+
+    if (updateData.status && ["Aceptado", "Rechazado"].includes(updateData.status)) {
+      const [[data]] = await db.query("SELECT SA.coverLetterFileName, SA.coverLetterFilePath, SA.practicePositionID, S.controlNumber, C.companyID FROM StudentApplication SA JOIN Student S ON SA.studentID = S.studentID JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID JOIN Company C ON P.companyID = C.companyID WHERE SA.applicationID = ?", [applicationID]);
+
+      if (!data) {
+        return res.status(404).json({ message: "Datos de postulación no encontrados" });
+      }
+
+      const oldPath = data.coverLetterFilePath.replace("https://uabcs.online/practicas", "");
+      const oldName = path.basename(oldPath);
+      const newName = `carta_presentacion_${data.controlNumber}_${updateData.status}.pdf`;
+      const newPath = `/company/company_${data.companyID}/documents/${newName}`;
+
+      const client = new ftp.Client();
+      await client.access(ftpConfig);
+      await client.rename(oldPath, newPath);
+      client.close();
+
+      updateData.coverLetterFileName = newName;
+      updateData.coverLetterFilePath = `https://uabcs.online/practicas${newPath}`;
     }
 
     const result = await StudentApplication.patchApplication(applicationID, updateData);
