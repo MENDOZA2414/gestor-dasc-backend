@@ -47,11 +47,11 @@ function mapUserTypeToDocumentType(userType) {
 // Asigna status inicial según el tipo de usuario
 function getInitialStatusByUserType(userType) {
   switch (userType) {
-    case 'student': return 'Pending';
-    case 'internalAssessor': return 'Accepted';
-    case 'externalAssessor': return 'InReview';
+    case 'student': return 'Pendiente';
+    case 'internalAssessor': return 'Aceptado';
+    case 'externalAssessor': return 'EnRevision';
     case 'admin':
-    case 'system': return 'Accepted';
+    case 'system': return 'Aceptado';
     default: return null;
   }
 }
@@ -113,48 +113,66 @@ const uploadGeneralDocument = async (req, res) => {
     if (!documentType || !status) {
       return res.status(400).json({ error: "Tipo de usuario no válido para documento" });
     }
-    
-    const composedFileName = `${tipoDocumento}_${status}_${safeFileName}`;
+
+    // Construir nombre de archivo dinámico según tipo
+    const documentosUnicos = [
+      "imss", "carta_presentacion", "carta_aceptacion",
+      "carta_compromiso", "carta_terminacion", "cuestionario_satisfaccion",
+      "informe_final"
+    ];
+
+    let composedFileName = "";
+
+    if (documentosUnicos.includes(tipoDocumento)) {
+      composedFileName = `${tipoDocumento}_${status}.pdf`;
+    } else {
+      composedFileName = `${tipoDocumento}_${status}_${Date.now()}.pdf`;
+    }
+
     const ftpPath = `/practices/${basePath}/documents/${composedFileName}`;
-    const fullUrl = `https://uabcs.online${ftpPath}`;
-    
+    const fullUrl = `https://uabcs.online/practicas${ftpPath}`;    
 
     try {
       // Subir archivo al FTP desde buffer
       await uploadToFTP(req.file.buffer, ftpPath, { overwrite: true });
-
-      // Guardar en la base de datos si es estudiante
+    
       if (userType === "student") {
         const [[studentRow]] = await db.query("SELECT studentID FROM Student WHERE userID = ?", [userID]);
-      
+    
         if (!studentRow) {
           return res.status(404).json({ error: "Alumno no encontrado para este usuario" });
         }
-      
+    
         const studentID = studentRow.studentID;
-      
-        // 🔧 Crear carpeta si no existe
         await createFtpStructure("student", userID);
-      
-        // Guardar en la base de datos
-        await StudentDocumentation.saveDocument(
-          studentID,
-          composedFileName, 
-          fullUrl,
-          documentType, 
-          status
-        );
-      }      
-
+    
+        try {
+          await StudentDocumentation.saveDocument({
+            studentID,
+            fileName: composedFileName,
+            filePath: fullUrl,
+            documentType,
+            status
+          });
+        } catch (dbError) {
+          // Si falla la BD, borrar el archivo del FTP
+          const client = new ftp.Client();
+          await client.access(ftpConfig);
+          await client.remove(ftpPath);
+          client.close();
+          throw dbError;
+        }
+      }
+    
       res.status(200).json({
         message: "Archivo subido correctamente",
         ftpPath: fullUrl
       });
-
+    
     } catch (error) {
       console.error("Error al subir el archivo:", error);
-      res.status(500).json({ error: "Error al subir archivo al FTP" });
-    }
+      res.status(500).json({ error: "Error al subir archivo o guardar en base de datos" });
+    }    
   });
 };
 
