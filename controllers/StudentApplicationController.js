@@ -8,7 +8,28 @@ const ftpConfig = require("../config/ftpConfig");
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
   try {
-    const { studentID, practicePositionID, companyID, controlNumber } = req.body;
+    const { studentID, practicePositionID, controlNumber } = req.body;
+
+    // Verificar que la vacante esté activa
+    const [[vacanteData]] = await db.query(`
+      SELECT P.companyID, P.status AS positionStatus
+      FROM PracticePosition P
+      WHERE P.practicePositionID = ?
+    `, [practicePositionID]);
+
+    if (!vacanteData) {
+      return res.status(404).json({ message: 'La vacante no existe o fue eliminada' });
+    }
+
+    console.log("Status de vacante:", vacanteData.positionStatus);
+
+    if (vacanteData.positionStatus !== 'Aceptado') {
+      return res.status(400).json({ message: 'Esta vacante no está activa para recibir postulaciones' });
+    }
+
+    const companyID = vacanteData.companyID;
+
+        
     const file = req.file;
 
     if (!studentID || !practicePositionID || !companyID || !controlNumber || !file) {
@@ -24,6 +45,19 @@ exports.registerApplication = async (req, res) => {
     if (currentStudents >= maxStudents) {
       return res.status(400).json({ message: 'La vacante ya no acepta más postulaciones, cupo lleno' });
     }
+
+    // Verificar si la empresa asociada está aceptada
+    const [[companyData]] = await db.query(`
+      SELECT C.status
+      FROM PracticePosition P
+      JOIN Company C ON P.companyID = C.companyID
+      WHERE P.practicePositionID = ?
+    `, [practicePositionID]);
+
+    if (!companyData || companyData.status !== 'Aceptado') {
+      return res.status(400).json({ message: 'La empresa asociada a esta vacante no está activa para recibir postulaciones' });
+    }
+
 
     // Verificar si ya existe una postulación previa (rechazada incluida)
     const [[existingApplication]] = await db.query(`
