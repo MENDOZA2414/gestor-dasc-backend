@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const uploadToFTP = require('../utils/FtpUploader');
 
 // Obtener todas las postulaciones por ID de vacante (activas)
 const getApplicationsByPositionID = async (positionID) => {
@@ -71,33 +72,64 @@ const rejectApplication = async (applicationID) => {
 };
 
 // Registrar una nueva postulación con archivo en FTP
-const saveApplication = async ({ studentID, practicePositionID, coverLetterFileName, coverLetterFilePath }) => {
-    const query = `
-      INSERT INTO StudentApplication 
-      (studentID, practicePositionID, coverLetterFileName, coverLetterFilePath, timestamp, recordStatus)
-      VALUES (?, ?, ?, ?, NOW(), 'Activo')
-    `;
-    await pool.query(query, [studentID, practicePositionID, coverLetterFileName, coverLetterFilePath]);
+const saveApplication = async ({ studentID, practicePositionID, companyID, controlNumber, bufferFile }) => {
+  const alreadyApplied = await verifyStudentApplication(studentID, practicePositionID);
+  if (alreadyApplied) {
+    throw new Error("Ya existe una postulación activa para esta vacante");
+  }
+
+  const fileName = `carta_presentacion_${controlNumber}_Pendiente.pdf`;
+  const ftpPath = `/company/company_${companyID}/documents/${fileName}`;
+  const publicUrl = `https://uabcs.online/practicas${ftpPath}`;
+
+  // Subir archivo al FTP
+  await uploadToFTP(bufferFile, ftpPath, { overwrite: true });
+
+  const insertQuery = `
+    INSERT INTO StudentApplication 
+    (studentID, practicePositionID, status, coverLetterFileName, coverLetterFilePath, timestamp, recordStatus)
+    VALUES (?, ?, 'Pendiente', ?, ?, NOW(), 'Activo')
+  `;
+  await pool.query(insertQuery, [studentID, practicePositionID, fileName, publicUrl]);
 };
 
-// Actualizar datos de una postulación (si está activa)
-const updateApplication = async (applicationID, updateData) => {
-    const { status, coverLetterFileName, coverLetterFilePath } = updateData;
+// Actualizar una postulación existente
+const patchApplication = async (applicationID, updateData) => {
+  if (!updateData || Object.keys(updateData).length === 0) {
+      throw new Error("No se proporcionaron campos para actualizar");
+  }
 
-    const query = `
+  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente'];
+
+  if (updateData.status && !validStatuses.includes(updateData.status)) {
+      throw new Error("Estatus de postulación no válido");
+  }
+
+  if (updateData.coverLetterFileName === "") updateData.coverLetterFileName = null;
+  if (updateData.coverLetterFilePath === "") updateData.coverLetterFilePath = null;
+
+  const keys = Object.keys(updateData);
+  const values = [];
+
+  const setClause = keys.map(key => {
+      values.push(updateData[key]);
+      return `${key} = ?`;
+  }).join(", ");
+
+  const query = `
       UPDATE StudentApplication
-      SET status = ?, coverLetterFileName = ?, coverLetterFilePath = ?
+      SET ${setClause}
       WHERE applicationID = ? AND recordStatus = 'Activo'
-    `;
-    const [result] = await pool.query(query, [
-      status, coverLetterFileName, coverLetterFilePath, applicationID
-    ]);
+  `;
 
-    if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar la postulación o ya fue eliminada');
-    }
+  values.push(applicationID);
+  const [result] = await pool.query(query, values);
 
-    return { message: 'Postulación actualizada correctamente' };
+  if (result.affectedRows === 0) {
+      throw new Error("No se pudo actualizar la postulación o ya fue eliminada");
+  }
+
+  return { message: "Postulación actualizada correctamente" };
 };
 
 // Obtener todas las postulaciones recibidas por una empresa (entidad)
@@ -129,7 +161,6 @@ const getApplicationsByCompanyID = async (companyID) => {
   return results;
 };
 
-
 module.exports = {
     getApplicationsByPositionID,
     getCoverLetterByID,
@@ -137,6 +168,6 @@ module.exports = {
     getApplicationsByStudentID,
     rejectApplication,
     saveApplication,
-    updateApplication,
+    patchApplication,
     getApplicationsByCompanyID
 };

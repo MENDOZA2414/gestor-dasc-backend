@@ -2,8 +2,7 @@ const StudentApplication = require('../models/StudentApplication');
 const uploadToFTP = require('../utils/FtpUploader');
 const path = require('path');
 const db = require('../config/db');
-const createFtpStructure = require('../utils/FtpStructureBuilder');
-const ProfessionalPractice = require('../models/ProfessionalPractice');
+const buildDocumentName = require("../utils/DocumentNameBuilder");
 
 // Obtener todas las postulaciones por ID de vacante
 exports.getApplicationsByPositionID = async (req, res) => {
@@ -100,39 +99,25 @@ exports.acceptApplication = async (req, res) => {
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
   try {
-    const { studentID, practicePositionID } = req.body;
+    const { studentID, practicePositionID, companyID, controlNumber } = req.body;
     const file = req.file;
 
-    if (!studentID || !practicePositionID || !file) {
-      return res.status(400).json({ message: 'Faltan datos: studentID, practicePositionID o archivo' });
+    if (!studentID || !practicePositionID || !companyID || !controlNumber || !file) {
+      return res.status(400).json({ message: 'Faltan datos: studentID, practicePositionID, companyID, controlNumber o archivo' });
     }
 
-    const [[studentRow]] = await db.query('SELECT userID FROM Student WHERE studentID = ?', [studentID]);
-
-    if (!studentRow) {
-      return res.status(404).json({ message: 'No se encontró el estudiante' });
-    }
-
-    const userID = studentRow.userID;
-    await createFtpStructure('student', userID);
-
-    const originalName = file.originalname
-      .replace(/\s+/g, '_')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w.-]/g, '');
-
-    const fileName = `carta_presentacion_${Date.now()}_${originalName}`;
-    const ftpPath = `/practices/students/student_${userID}/documents/${fileName}`;
-    const fullURL = `https://uabcs.online${ftpPath}`;
+    const fileName = `carta_presentacion_${controlNumber}_Pendiente.pdf`;
+    const ftpPath = `/company/company_${companyID}/documents/${fileName}`;
+    const fullURL = `https://uabcs.online/practicas${ftpPath}`;
 
     await uploadToFTP(file.buffer, ftpPath);
 
     await StudentApplication.saveApplication({
       studentID,
       practicePositionID,
-      coverLetterFileName: fileName,
-      coverLetterFilePath: fullURL
+      companyID,
+      controlNumber,
+      bufferFile: file.buffer
     });
 
     res.status(201).json({
@@ -166,17 +151,16 @@ exports.getApplicationsByCompanyID = async (req, res) => {
 };
 
 // Actualizar una postulación existente
-exports.updateApplication = async (req, res) => {
+exports.patchApplicationController = async (req, res) => {
   try {
     const applicationID = req.params.applicationID;
-    const { status, coverLetterFileName, coverLetterFilePath } = req.body;
+    const updateData = req.body;
 
-    const result = await StudentApplication.updateApplication(applicationID, {
-      status,
-      coverLetterFileName,
-      coverLetterFilePath
-    });
+    if (!updateData || Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No se proporcionaron campos para actualizar' });
+    }
 
+    const result = await StudentApplication.patchApplication(applicationID, updateData);
     res.status(200).json(result);
   } catch (error) {
     console.error('Error al actualizar la postulación:', error.message);
