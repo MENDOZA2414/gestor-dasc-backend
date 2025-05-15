@@ -15,18 +15,19 @@ exports.getDocumentsByStudentAndStatus = async (req, res) => {
 // Obtener un documento por ID
 exports.getDocumentByID = async (req, res) => {
     try {
-        const { id } = req.params;
-        const document = await StudentDocumentation.getDocumentByID(id);
-
-        if (document) {
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
-            res.send(Buffer.from(document.file, 'binary'));
-        } else {
-            res.status(404).send({ message: 'Documento no encontrado' });
-        }
+      const { id } = req.params;
+      const document = await StudentDocumentation.getDocumentByID(id);
+  
+      if (document) {
+        res.status(200).json({
+          filePath: document.filePath,
+          fileName: document.fileName
+        });
+      } else {
+        res.status(404).send({ message: 'Documento no encontrado' });
+      }
     } catch (err) {
-        res.status(500).send({ message: 'Error en el servidor: ' + err.message });
+      res.status(500).send({ message: 'Error en el servidor: ' + err.message });
     }
 };
 
@@ -44,14 +45,26 @@ exports.countAcceptedDocuments = async (req, res) => {
 // Aprobar un documento
 exports.approveDocument = async (req, res) => {
     try {
-        const { documentID } = req.body;
-        const userType = req.user.userTypeID;
-        const result = await StudentDocumentation.approveDocument(documentID, userType);
-        res.status(200).send(result);
+      const { documentID } = req.body;
+  
+      // Obtener info del documento
+      const doc = await StudentDocumentation.getDocumentByID(documentID);
+      if (!doc) {
+        return res.status(404).json({ message: 'Documento no encontrado' });
+      }
+  
+      const result = await StudentDocumentation.approveDocument(
+        documentID,
+        doc.fileName,
+        doc.filePath
+      );
+  
+      res.status(200).send(result);
     } catch (err) {
-        res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
+      res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
     }
-};
+  };
+  
 
 // Rechazar un documento
 exports.rejectDocument = async (req, res) => {
@@ -74,5 +87,17 @@ exports.deleteDocument = async (req, res) => {
         res.status(200).send(result);
     } catch (err) {
         res.status(500).send({ message: 'Error al eliminar documento', error: err.message });
+    }
+};
+
+// Actualizar metadatos de un documento (documentType, fileName, status, etc.)
+exports.patchDocument = async (req, res) => {
+    try {
+        const { documentID } = req.params;
+        const updateData = req.body;
+        const result = await StudentDocumentation.patchDocument(documentID, updateData);
+        res.status(200).send(result);
+    } catch (err) {
+        res.status(500).send({ message: 'Error al actualizar documento', error: err.message });
     }
 };

@@ -2,158 +2,128 @@ const pool = require('../config/db');
 const { deleteFileFromFTP, renameFileOnFTP } = require('../utils/FtpUtils');
 
 // Guardar un nuevo documento
-const saveDocument = async (studentID, fileName, filePath, documentType, status) => {
-  const query = `
-    INSERT INTO StudentDocumentation (studentID, fileName, filePath, documentType, status, timestamp, recordStatus)
-    VALUES (?, ?, ?, ?, ?, NOW(), 'Activo')
+const saveDocument = async (data) => {
+  const { studentID, documentType, fileName, filePath } = data;
+
+  const insertQuery = `
+    INSERT INTO StudentDocumentation (
+      studentID, documentType, fileName, filePath, status, recordStatus, uploadDate
+    ) VALUES (?, ?, ?, ?, 'Pendiente', 'Activo', NOW())
   `;
-  await pool.query(query, [studentID, fileName, filePath, documentType, status]);
+
+  await pool.query(insertQuery, [studentID, documentType, fileName, filePath]);
+
+  return { message: 'Documento registrado correctamente' };
 };
 
-// Obtener documentos por alumno y estatus
+// Obtener documentos por estudiante y estatus
 const getDocumentsByStudentAndStatus = async (studentID, status) => {
-    const query = `
-      SELECT documentID, fileName, filePath, status, timestamp
-      FROM StudentDocumentation
-      WHERE studentID = ? 
-        AND status = ? 
-        AND recordStatus = 'Activo'
-        AND status != 'Removed'
-      ORDER BY timestamp DESC
-    `;
-    const [results] = await pool.query(query, [studentID, status]);
-    return results;
+  const query = `
+    SELECT documentID, studentID, documentType, fileName, filePath, status
+    FROM StudentDocumentation
+    WHERE studentID = ? AND status = ? AND recordStatus = 'Activo'
+  `;
+  const [rows] = await pool.query(query, [studentID, status]);
+  return rows;
 };
-  
 
-// Obtener un documento por ID
+// Obtener documento por ID
 const getDocumentByID = async (documentID) => {
-  const query = 'SELECT fileName, filePath FROM StudentDocumentation WHERE documentID = ? AND recordStatus = "Activo"';
-  const [result] = await pool.query(query, [documentID]);
-  return result.length > 0 ? result[0] : null;
+  const query = `
+    SELECT documentID, studentID, documentType, fileName, filePath, status
+    FROM StudentDocumentation
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `;
+  const [rows] = await pool.query(query, [documentID]);
+  return rows[0];
 };
 
-// Contar documentos aceptados
+// Contar cuántos documentos tiene el estudiante con status Aceptado
 const countAcceptedDocuments = async (studentID) => {
   const query = `
-    SELECT COUNT(*) AS acceptedCount 
-    FROM StudentDocumentation 
-    WHERE studentID = ? AND status = "Accepted" AND recordStatus = "Activo"
+    SELECT COUNT(*) AS count
+    FROM StudentDocumentation
+    WHERE studentID = ? AND status = 'Aceptado' AND recordStatus = 'Activo'
   `;
-  const [result] = await pool.query(query, [studentID]);
-  return result[0];
+  const [[result]] = await pool.query(query, [studentID]);
+  return result.count;
 };
 
 // Aprobar un documento
-const approveDocument = async (documentID, userType) => {
-  const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ? AND recordStatus = "Activo"';
-  const updateQuery = `
-    UPDATE StudentDocumentation 
-    SET status = "Accepted", fileName = ?, filePath = ?
+const approveDocument = async (documentID, fileName, filePath) => {
+  const query = `
+    UPDATE StudentDocumentation
+    SET status = 'Aceptado', fileName = ?, filePath = ?
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `;
+  await pool.query(query, [fileName, filePath, documentID]);
+  return { message: 'Documento aprobado correctamente' };
+};
+
+// Rechazar un documento
+const rejectDocument = async (documentID, fileName, filePath) => {
+  const query = `
+    UPDATE StudentDocumentation
+    SET status = 'Rechazado', fileName = ?, filePath = ?
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `;
+  await pool.query(query, [fileName, filePath, documentID]);
+  return { message: 'Documento rechazado correctamente' };
+};
+
+// Eliminar un documento (eliminar lógico)
+const deleteDocument = async (documentID, fileName, filePath) => {
+  const query = `
+    UPDATE StudentDocumentation
+    SET recordStatus = 'Eliminado', fileName = ?, filePath = ?
     WHERE documentID = ?
   `;
-  const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
+  await pool.query(query, [fileName, filePath, documentID]);
+  return { message: 'Documento eliminado correctamente' };
+};
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
+// Editar metadatos de un documento existente (actualización parcial)
+const patchDocument = async (documentID, updateData) => {
+  const fields = [];
+  const values = [];
 
-    const [results] = await connection.query(selectQuery, [documentID]);
-    if (results.length === 0) throw new Error('Documento no encontrado');
-
-    const doc = results[0];
-    const newFileName = doc.fileName.replace('Pending', 'Accepted');
-    const newPath = doc.filePath.replace(doc.fileName, newFileName);
-
-    await renameFileOnFTP(doc.filePath.replace('https://uabcs.online', ''), newPath.replace('https://uabcs.online', ''));
-    await connection.query(updateQuery, [newFileName, newPath, documentID]);
-    await connection.query(auditQuery, ['StudentDocumentation', 'UPDATE', new Date(), userType]);
-
-    await connection.commit();
-    return { message: 'Documento aprobado exitosamente' };
-  } catch (err) {
-    await connection.rollback();
-    throw err;
-  } finally {
-    connection.release();
+  if (updateData.documentType) {
+    fields.push("documentType = ?");
+    values.push(updateData.documentType);
   }
-};
+  if (updateData.fileName) {
+    fields.push("fileName = ?");
+    values.push(updateData.fileName);
+  }
+  if (updateData.filePath) {
+    fields.push("filePath = ?");
+    values.push(updateData.filePath);
+  }
+  if (updateData.status) {
+    fields.push("status = ?");
+    values.push(updateData.status);
+  }
 
-// Rechazar un documento (eliminación lógica)
-const rejectDocument = async (documentID, userType) => {
-    const selectQuery = 'SELECT * FROM StudentDocumentation WHERE documentID = ? AND recordStatus = "Activo"';
-    const updateQuery = `
-      UPDATE StudentDocumentation
-      SET fileName = ?, filePath = ?, status = 'Rejected'
-      WHERE documentID = ?
-    `;
-    const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
-  
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-  
-      const [results] = await connection.query(selectQuery, [documentID]);
-      if (results.length === 0) throw new Error('Documento no encontrado');
-  
-      const doc = results[0];
-      const newFileName = doc.fileName.replace('Pending', 'Rejected').replace('Accepted', 'Rejected');
-      const newPath = doc.filePath.replace(doc.fileName, newFileName);
-  
-      await renameFileOnFTP(doc.filePath.replace('https://uabcs.online', ''), newPath.replace('https://uabcs.online', ''));
-  
-      await connection.query(updateQuery, [newFileName, newPath, documentID]);
-      await connection.query(auditQuery, ['StudentDocumentation', 'RENAME_REJECTED', new Date(), userType]);
-  
-      await connection.commit();
-      return { message: 'Documento rechazado y renombrado correctamente' };
-    } catch (err) {
-      await connection.rollback();
-      throw err;
-    } finally {
-      connection.release();
-    }
-};
-  
+  if (fields.length === 0) {
+    throw new Error("No se proporcionaron campos válidos para actualizar");
+  }
 
-// Eliminar documento (eliminación lógica + renombramiento del archivo)
-const deleteDocument = async (documentID, userType) => {
-    const selectQuery = 'SELECT fileName, filePath FROM StudentDocumentation WHERE documentID = ? AND recordStatus = "Activo"';
-    const updateQuery = `
-      UPDATE StudentDocumentation
-      SET fileName = ?, filePath = ?, status = 'Removed', recordStatus = 'Eliminado'
-      WHERE documentID = ?
-    `;
-    const auditQuery = 'INSERT INTO Audit (`table`, action, date, userType) VALUES (?, ?, ?, ?)';
-  
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-  
-      const [result] = await connection.query(selectQuery, [documentID]);
-      if (result.length === 0) throw new Error('Documento no encontrado');
-  
-      const originalName = result[0].fileName;
-      const originalPath = result[0].filePath;
-  
-      const newFileName = originalName.replace('Pending', 'Removed').replace('Accepted', 'Removed');
-      const newFilePath = originalPath.replace(originalName, newFileName);
-  
-      await renameFileOnFTP(originalPath.replace('https://uabcs.online', ''), newFilePath.replace('https://uabcs.online', ''));
-  
-      await connection.query(updateQuery, [newFileName, newFilePath, documentID]);
-      await connection.query(auditQuery, ['StudentDocumentation', 'RENAME_REMOVED', new Date(), userType]);
-  
-      await connection.commit();
-      return { message: 'Documento renombrado como eliminado exitosamente' };
-    } catch (err) {
-      await connection.rollback();
-      throw err;
-    } finally {
-      connection.release();
-    }
-  };
-  
+  const query = `
+    UPDATE StudentDocumentation
+    SET ${fields.join(", ")}
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `;
+
+  values.push(documentID);
+
+  const [result] = await pool.query(query, values);
+
+  if (result.affectedRows === 0) {
+    throw new Error('No se pudo actualizar el documento');
+  }
+
+  return { message: 'Documento actualizado correctamente' };
+};
 
 module.exports = {
   saveDocument,
@@ -162,5 +132,6 @@ module.exports = {
   countAcceptedDocuments,
   approveDocument,
   rejectDocument,
-  deleteDocument
+  deleteDocument,
+  patchDocument
 };

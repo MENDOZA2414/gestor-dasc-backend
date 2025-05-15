@@ -3,6 +3,8 @@ const router = express.Router();
 const { uploadProfilePhoto } = require('../controllers/ProfileController');
 const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
+const rateLimit = require('express-rate-limit'); // Asegúrate de tener esta línea
+
 const {
     registerUserController,
     loginUserController,
@@ -12,11 +14,18 @@ const {
     deleteUserController
 } = require('../controllers/UserController');
 
+// Middleware de limitador de intentos de login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 intentos
+  message: 'Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 15 minutos.'
+});
+
 // Ruta para registrar un nuevo usuario (pública)
 router.post('/register', registerUserController);
 
-// Ruta para iniciar sesión (pública)
-router.post('/login', loginUserController);
+// Ruta para iniciar sesión (pública, protegida con loginLimiter)
+router.post('/login', loginLimiter, loginUserController);
 
 // Ruta para cerrar sesión (pública)
 router.get('/logout', logoutUserController);

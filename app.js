@@ -54,17 +54,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Aplicar limitador solo al login
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: 'Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 15 minutos.',
-  standardHeaders: true,
-  legacyHeaders: false
-});
-app.use('/api/users/login', loginLimiter);
-
-
 // Middlewares
 app.use(logger('dev'));
 app.use(express.json());

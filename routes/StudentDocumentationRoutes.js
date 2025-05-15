@@ -21,4 +21,7 @@ router.post('/reject', authMiddleware, studentDocumentationController.rejectDocu
 // Eliminar un documento (eliminación lógica + renombrar en FTP)
 router.delete('/:documentID', authMiddleware, studentDocumentationController.deleteDocument);
 
+// Editar metadatos de un documento (tipo, nombre, estado)
+router.patch('/:documentID', authMiddleware, studentDocumentationController.patchDocument);
+
 module.exports = router;
