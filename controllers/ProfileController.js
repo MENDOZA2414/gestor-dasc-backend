@@ -1,6 +1,7 @@
 const path = require("path");
 const db = require("../config/db");
 const uploadToFTP = require("../utils/FtpUploader");
+const { deleteFileFromFTP } = require("../utils/FtpUtils"); // Asegúrate de tener esta función
 
 const userTypeMap = {
   1: { table: "InternalAssessor", column: "photo" },
@@ -18,47 +19,42 @@ const uploadProfilePhoto = async (req, res) => {
 
   try {
     const [[user]] = await db.query("SELECT userTypeID FROM User WHERE userID = ?", [userID]);
-
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
     const mapping = userTypeMap[user.userTypeID];
-    if (!mapping) {
-      return res.status(400).json({ error: "Tipo de usuario no válido" });
-    }
+    if (!mapping) return res.status(400).json({ error: "Tipo de usuario no válido" });
 
     const table = mapping.table;
     const column = mapping.column;
 
-    // Obtener ruta de la foto anterior
+    // Obtener foto anterior
     const [[existing]] = await db.query(
       `SELECT ${column} FROM ${table} WHERE userID = ?`,
       [userID]
     );
 
-    // Verificar si la foto existe antes de intentar eliminarla
+    // Eliminar foto anterior si existe
     if (existing?.[column]) {
-      const oldFilePath = path.posix.join("/", existing[column].replace("https://uabcs.online", ""));
-
+      const ftpOldPath = existing[column].replace("https://uabcs.online/practicas", "");
       try {
-        // Intentar eliminar la foto anterior si existe en FTP
-        await uploadToFTP(oldFilePath, oldFilePath, { overwrite: true });
+        await deleteFileFromFTP(ftpOldPath);
+        console.log("Foto anterior eliminada correctamente.");
       } catch (err) {
-        console.log("No se encontró la foto anterior en FTP. Continuamos con la subida.");
+        console.warn("No se pudo eliminar la foto anterior:", err.message);
       }
     }
 
-    // Subir nueva foto al FTP
+    // Subir nueva foto
     const remotePath = `/images/profiles/${req.generatedFileName}`;
     const publicUrl = `https://uabcs.online/practicas${remotePath}`;
 
-
-    // Subir archivo al FTP
     await uploadToFTP(req.bufferFile, remotePath, { overwrite: true });
 
-    // Actualizar la URL en la base de datos
-    await db.query(`UPDATE ${table} SET ${column} = ? WHERE userID = ?`, [publicUrl, userID]);
+    // Actualizar en la BD
+    await db.query(
+      `UPDATE ${table} SET ${column} = ? WHERE userID = ?`,
+      [publicUrl, userID]
+    );
 
     res.status(200).json({ message: "Foto de perfil actualizada", photo: publicUrl });
   } catch (error) {
