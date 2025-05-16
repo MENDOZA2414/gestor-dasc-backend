@@ -9,7 +9,23 @@ const ftpConfig = require("../config/ftpConfig");
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
   try {
-    const { studentID, practicePositionID, controlNumber } = req.body;
+    const { practicePositionID } = req.body;
+    const studentID = req.user.id;
+
+    if (req.user.userTypeID !== 2) {
+      return res.status(403).json({ message: 'Solo los estudiantes pueden registrar postulaciones.' });
+    }
+
+    const [[studentInfo]] = await db.query(
+      'SELECT controlNumber FROM Student WHERE userID = ?',
+      [studentID]
+    );
+
+    if (!studentInfo) {
+      return res.status(404).json({ message: 'No se encontró información del estudiante.' });
+    }
+
+    const controlNumber = studentInfo.controlNumber;
 
     // Verificar que la vacante esté activa
     const [[vacanteData]] = await db.query(`
@@ -211,67 +227,164 @@ exports.getApplicationsByPositionID = async (req, res) => {
 
 // Obtener el nombre y la URL de la carta de presentación por ID de postulación
 exports.getCoverLetterByID = async (req, res) => {
-    try {
-      const applicationID = req.params.id;
-      const data = await StudentApplication.getCoverLetterByID(applicationID);
+  try {
+    const applicationID = req.params.id;
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
 
-      if (data) {
-        res.status(200).json({
-          fileName: data.coverLetterFileName,
-          filePath: data.coverLetterFilePath
-        });
-      } else {
-        res.status(404).json({ message: 'No se encontró la carta de presentación' });
-      }
-    } catch (error) {
-      res.status(500).json({ message: 'Error en el servidor: ' + error.message });
+    const data = await StudentApplication.getCoverLetterByID(applicationID);
+
+    if (!data) {
+      return res.status(404).json({ message: 'No se encontró la carta de presentación' });
     }
+
+    // Obtener roles
+    const [rolesRows] = await pool.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    // Validaciones de acceso
+    if (!isAdmin) {
+      if (userTypeID === 2 && data.studentID !== requesterID) {
+        return res.status(403).json({ message: 'No puedes acceder a la carta de otro estudiante.' });
+      }
+
+      if (userTypeID === 4 && data.companyID !== requesterID) {
+        return res.status(403).json({ message: 'No puedes acceder a cartas de vacantes que no pertenecen a tu empresa.' });
+      }
+    }
+
+    res.status(200).json({
+      fileName: data.coverLetterFileName,
+      filePath: data.coverLetterFilePath
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Error en el servidor: ' + error.message });
+  }
 };
 
 // Verificar si un estudiante ya se ha postulado a una vacante específica
 exports.verifyStudentApplication = async (req, res) => {
-    try {
-      const { studentID, positionID } = req.params;
-      const hasApplied = await StudentApplication.verifyStudentApplication(studentID, positionID);
-      res.status(200).json({ applied: hasApplied });
-    } catch (error) {
-      console.error('Error verificando postulación:', error.message);
-      res.status(500).json({ error: 'Error verificando postulación' });
+  try {
+    const { studentID, positionID } = req.params;
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+
+    // Solo estudiantes pueden usar esta ruta
+    if (userTypeID !== 2) {
+      return res.status(403).json({ error: 'Solo los estudiantes pueden verificar sus postulaciones.' });
     }
+
+    // El estudiante solo puede consultar su propia postulación
+    if (parseInt(studentID) !== requesterID) {
+      return res.status(403).json({ error: 'No tienes permiso para consultar postulaciones de otro estudiante.' });
+    }
+
+    const hasApplied = await StudentApplication.verifyStudentApplication(studentID, positionID);
+    res.status(200).json({ applied: hasApplied });
+
+  } catch (error) {
+    console.error('Error verificando postulación:', error.message);
+    res.status(500).json({ error: 'Error verificando postulación' });
+  }
 };
 
 // Obtener todas las postulaciones realizadas por un estudiante
 exports.getApplicationsByStudentID = async (req, res) => {
-    try {
-      const studentID = req.params.studentID;
-      const applications = await StudentApplication.getApplicationsByStudentID(studentID);
-      res.status(200).json(applications);
-    } catch (error) {
-      console.error('Error obteniendo postulaciones:', error.message);
-      res.status(500).json({ error: 'Error obteniendo postulaciones' });
+  try {
+    const studentID = parseInt(req.params.studentID);
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+
+    // Obtener roles
+    const [rolesRows] = await pool.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    // Si no es admin, debe ser el mismo estudiante
+    if (!isAdmin) {
+      if (userTypeID !== 2 || requesterID !== studentID) {
+        return res.status(403).json({ error: 'No tienes permiso para consultar postulaciones de otro estudiante.' });
+      }
     }
+
+    const applications = await StudentApplication.getApplicationsByStudentID(studentID);
+    res.status(200).json(applications);
+
+  } catch (error) {
+    console.error('Error obteniendo postulaciones:', error.message);
+    res.status(500).json({ error: 'Error obteniendo postulaciones' });
+  }
 };
 
 // Obtener todas las postulaciones recibidas por una empresa (entidad receptora)
 exports.getApplicationsByCompanyID = async (req, res) => {
   try {
-    const companyID = req.params.companyID;
-    const applications = await StudentApplication.getApplicationsByCompanyID(companyID);
+    const companyID = parseInt(req.params.companyID);
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
 
-    if (applications.length === 0) {
-      return res.status(404).json({ message: 'No hay postulaciones registradas para esta empresa' });
+    // Obtener roles
+    const [rolesRows] = await pool.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    // Si no es admin, debe ser empresa y solo acceder a su propio companyID
+    if (!isAdmin) {
+      if (userTypeID !== 4 || requesterID !== companyID) {
+        return res.status(403).json({ error: 'No tienes permiso para consultar estas postulaciones.' });
+      }
     }
 
+    const applications = await StudentApplication.getApplicationsByCompanyID(companyID);
     res.status(200).json(applications);
+
   } catch (error) {
-    console.error('Error al obtener postulaciones por empresa:', error.message);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+    console.error('Error obteniendo postulaciones por empresa:', error.message);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 };
 
 // Actualizar una postulación existente (aceptar o rechazar con renombrado y validación de cupo)
 exports.patchApplicationController = async (req, res) => {
   try {
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+
+    // Obtener roles
+    const [rolesRows] = await db.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    if (!isAdmin && userTypeID !== 1) {
+      return res.status(403).json({ message: 'Solo asesores internos o administradores pueden modificar postulaciones.' });
+    }
+
     const applicationID = req.params.applicationID;
     const updateData = req.body;
 
