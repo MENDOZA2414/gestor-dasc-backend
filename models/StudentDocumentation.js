@@ -71,6 +71,25 @@ const rejectDocument = async (documentID, fileName, filePath) => {
   return { message: 'Documento rechazado correctamente' };
 };
 
+// Marcar un documento como EnRevisión
+const markAsInReview = async (documentID, fileName, filePath) => {
+  const newFileName = fileName.replace("Pendiente", "EnRevisión");
+  const newFilePath = filePath.replace(fileName, newFileName);
+
+  await renameFileOnFTP(filePath.replace("https://uabcs.online", ""), newFilePath.replace("https://uabcs.online", ""));
+
+  const updateQuery = `
+    UPDATE StudentDocumentation
+    SET fileName = ?, filePath = ?, status = 'EnRevisión'
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `;
+
+  await pool.query(updateQuery, [newFileName, newFilePath, documentID]);
+
+  return { message: 'Documento enviado a revisión correctamente' };
+};
+
+
 // Eliminar un documento (eliminar lógico)
 const deleteDocument = async (documentID, fileName, filePath) => {
   const query = `
@@ -132,6 +151,7 @@ module.exports = {
   countAcceptedDocuments,
   approveDocument,
   rejectDocument,
+  markAsInReview,
   deleteDocument,
   patchDocument
 };

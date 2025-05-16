@@ -18,6 +18,9 @@ router.post('/approve', authMiddleware, studentDocumentationController.approveDo
 // Rechazar un documento
 router.post('/reject', authMiddleware, studentDocumentationController.rejectDocument);
 
+// Marcar un documento como en revisión
+router.patch('/review/:documentID', authMiddleware, studentDocumentationController.markDocumentAsInReview);
+
 // Eliminar un documento (eliminación lógica + renombrar en FTP)
 router.delete('/:documentID', authMiddleware, studentDocumentationController.deleteDocument);
 

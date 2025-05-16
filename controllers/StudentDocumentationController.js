@@ -78,6 +78,37 @@ exports.rejectDocument = async (req, res) => {
     }
 };
 
+// Marcar un documento como en revisión
+exports.markDocumentAsInReview = async (req, res) => {
+  try {
+    const { documentID } = req.params;
+    const userType = req.user.userTypeID;
+
+    if (userType !== 'student' && userType !== 2)  {
+      return res.status(403).json({ message: 'Solo los estudiantes pueden enviar documentos a revisión' });
+    }
+
+    const document = await StudentDocumentation.getDocumentByID(documentID);
+
+    if (!document || document.status !== 'Pendiente') {
+      return res.status(400).json({ message: 'El documento no está en estado Pendiente o no existe' });
+    }
+    // Obtener ruta interna desde filePath
+    const ftpPath = document.filePath.replace('https://uabcs.online/practicas', '');
+
+    const result = await StudentDocumentation.markAsInReview(
+      documentID,
+      document.fileName,
+      ftpPath
+    );
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error al marcar documento en revisión:', error.message);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  }
+};
+
 // Eliminar un documento
 exports.deleteDocument = async (req, res) => {
     try {

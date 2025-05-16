@@ -16,10 +16,12 @@ const {
 
 // Middleware de limitador de intentos de login
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 intentos
-  message: 'Demasiados intentos fallidos de inicio de sesión. Intenta de nuevo en 15 minutos.'
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.body.email || req.ip,
+  message: 'Demasiados intentos fallidos con este correo. Intenta de nuevo en 15 minutos.'
 });
+
 
 // Ruta para registrar un nuevo usuario (pública)
 router.post('/register', registerUserController);
