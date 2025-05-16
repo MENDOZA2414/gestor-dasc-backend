@@ -8,20 +8,36 @@ const {
   patchUser,
   deleteUser
 } = require('../models/User');
+const {
+  assignRolesToUser
+} = require('../models/UserRole'); 
 
 // Registrar usuario
 exports.registerUserController = async (req, res) => {
-  const { email, password, phone, roleID, userTypeID } = req.body;
+  const { email, password, phone, userTypeID } = req.body;
 
-  if (!email || !password || !phone || !roleID || !userTypeID) {
+  if (!email || !password || !phone || !userTypeID) {
     return res.status(400).send({ message: 'Faltan datos requeridos' });
   }
 
   try {
     const connection = await pool.getConnection();
-    await registerUser(connection, email, password, phone, roleID, userTypeID);
-    connection.release();
-    res.status(201).send({ message: 'Usuario registrado con éxito' });
+    try {
+      await connection.beginTransaction();
+
+      const userID = await registerUser(connection, email, password, phone, userTypeID);
+
+      // Asignar rol por defecto: Usuario (roleID = 3)
+      await assignRolesToUser(userID, [3]);
+
+      await connection.commit();
+      res.status(201).send({ message: 'Usuario registrado con éxito' });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     res.status(500).send({ message: 'Error al registrar el usuario', error: error.message });
   }
@@ -59,12 +75,10 @@ exports.loginUserController = async (req, res) => {
     // Guardar en la base de datos
     await pool.query('UPDATE User SET sessionToken = ? WHERE userID = ?', [sessionToken, user.userID]);
 
-    // Generar JWT con sessionToken
     const token = jwt.sign(
       {
         id: user.userID,
         email: user.email,
-        roleID: user.roleID,
         userTypeID: user.userTypeID,
         sessionToken
       },

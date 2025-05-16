@@ -20,7 +20,7 @@ const registerInternalAssessor = async (assessorData) => {
             internalAssessorStatus = 'Activo'
         } = assessorData;
 
-        const userID = await registerUser(connection, email, password, phone, 3, 2); // 2 = asesor interno
+        const userID = await registerUser(connection, email, password, phone, 1); // 1 = asesor interno
 
         // Insertar con photo = null inicialmente
         const insertQuery = `

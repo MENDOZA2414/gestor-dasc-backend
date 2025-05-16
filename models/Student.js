@@ -43,7 +43,7 @@ const registerStudent = async (studentData) => {
     }
 
     // Registrar usuario
-    const userID = await registerUser(connection, email, password, phone, 3, 2);
+    const userID = await registerUser(connection, email, password, phone, 2);
 
     const generatedFileName = studentData.profilePhotoName || null;
     const bufferFile = studentData.profilePhotoBuffer || null;

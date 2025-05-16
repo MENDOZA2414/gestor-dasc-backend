@@ -36,7 +36,7 @@ const registerCompany = async (companyData) => {
             throw new Error('RFC, nombre fiscal y nombre de la empresa son obligatorios');
         }
 
-        const userID = await registerUser(connection, email, password, phone, 3, 4); // 4 = empresa
+        const userID = await registerUser(connection, email, password, phone, 4); 
 
             // Insertar con photo = null temporalmente
             const insertQuery = `
