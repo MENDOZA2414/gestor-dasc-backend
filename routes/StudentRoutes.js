@@ -2,32 +2,83 @@ const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/StudentController');
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
+const authMiddleware = require('../middlewares/AuthMiddleware');
+const checkRole = require('../middlewares/CheckRole');
+const checkUserType = require('../middlewares/CheckUserType');
 
-// Ruta para registrar un alumno
-router.post('/register', profileUploadMiddleware, studentController.registerStudentController);
+// Ruta para registrar un alumno (pública)
+router.post(
+  '/register',
+  profileUploadMiddleware,
+  studentController.registerStudentController
+);
 
-// Ruta para contar todos los alumnos
-router.get('/count', studentController.countStudents);
+// Ruta para contar todos los alumnos (solo Admin/SuperAdmin)
+router.get(
+  '/count',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.countStudents
+);
 
 // Ruta para obtener todos los alumnos asignados a un asesor interno
-router.get('/all', studentController.getAllStudents);
+router.get(
+  '/all',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['internalAssessor']),
+  studentController.getAllStudents
+);
 
 // Ruta para obtener los alumnos asignados a un asesor interno
-router.get('/assessor/:internalAssessorID', studentController.getStudentsByInternalAssessorID);
+router.get(
+  '/assessor/:internalAssessorID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['internalAssessor']),
+  studentController.getStudentsByInternalAssessorID
+);
 
 // Ruta para obtener alumnos por estatus y ID de asesor interno
-router.get('/', studentController.getStudentsByStatusAndAssessorID);
+router.get(
+  '/',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['internalAssessor']),
+  studentController.getStudentsByStatusAndAssessorID
+);
 
 // Ruta para obtener un alumnos por estatus
-router.get('/by-student-status', studentController.getStudentsByStudentStatus);
+router.get(
+  '/by-student-status',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.getStudentsByStudentStatus
+);
 
 // Ruta para obtener un alumno por controlNumber
-router.get('/:controlNumber', studentController.getStudentByControlNumber);
+router.get(
+  '/:controlNumber',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['student', 'internalAssessor']),
+  studentController.getStudentByControlNumber
+);
 
 // Ruta para eliminar un alumno por controlNumber
-router.delete('/:controlNumber', studentController.deleteStudentByControlNumber);
+router.delete(
+  '/:controlNumber',
+  authMiddleware,
+  checkRole(['SuperAdmin']),
+  studentController.deleteStudentByControlNumber
+);
 
 // Ruta para actualizar los datos de un alumno por controlNumber
-router.patch('/:controlNumber', studentController.patchStudentController);
+router.patch(
+  '/:controlNumber',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.patchStudentController
+);
 
 module.exports = router;
