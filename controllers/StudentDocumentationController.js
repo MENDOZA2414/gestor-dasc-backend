@@ -125,7 +125,7 @@ exports.markDocumentAsInReview = async (req, res) => {
     const result = await StudentDocumentation.markAsInReview(
       documentID,
       document.fileName,
-      document.filePath // ✅ ENVÍA COMPLETO
+      document.filePath 
     );
 
     res.status(200).json(result);
@@ -167,12 +167,12 @@ exports.deleteDocument = async (req, res) => {
 
 // Actualizar metadatos de un documento (documentType, fileName, status, etc.)
 exports.patchDocument = async (req, res) => {
-    try {
-        const { documentID } = req.params;
-        const updateData = req.body;
-        const result = await StudentDocumentation.patchDocument(documentID, updateData);
-        res.status(200).send(result);
-    } catch (err) {
-        res.status(500).send({ message: 'Error al actualizar documento', error: err.message });
-    }
+  try {
+    const { documentID } = req.params;
+    const updateData = req.body;
+    const result = await StudentDocumentation.patchDocument(documentID, updateData);
+    res.status(200).send(result);
+  } catch (err) {
+    res.status(500).send({ message: 'Error al actualizar documento', error: err.message });
+  }
 };

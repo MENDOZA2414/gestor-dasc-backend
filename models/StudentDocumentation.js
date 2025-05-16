@@ -131,8 +131,7 @@ const deleteDocument = async (documentID, fileName, filePath) => {
   try {
     await renameFileOnFTP(ftpOldPath, ftpNewPath);
   } catch (err) {
-    console.warn("⚠️ No se pudo renombrar el archivo en el FTP:", err.message);
-    // Aún así se procede a marcar como eliminado en la BD
+    console.warn("No se pudo renombrar el archivo en el FTP:", err.message);
   }
 
   const query = `
@@ -151,21 +150,43 @@ const patchDocument = async (documentID, updateData) => {
   const fields = [];
   const values = [];
 
+  // Obtener el documento actual para reconstruir el nombre si cambia el status
+  const [[doc]] = await pool.query(`
+    SELECT fileName, filePath FROM StudentDocumentation
+    WHERE documentID = ? AND recordStatus = 'Activo'
+  `, [documentID]);
+
+  if (!doc) throw new Error("Documento no encontrado");
+
+  let newFileName = doc.fileName;
+  let newFilePath = doc.filePath;
+
+  if (updateData.status) {
+    // Reemplazar estatus en nombre de archivo y ruta
+    const updatedStatus = updateData.status;
+    newFileName = doc.fileName.replace(/(Pendiente|EnRevision|Aceptado|Rechazado|Eliminado)/, updatedStatus);
+    newFilePath = doc.filePath.replace(doc.fileName, newFileName);
+
+    // Intentar renombrar archivo en FTP
+    try {
+      const oldPath = doc.filePath.replace("https://uabcs.online/practicas", "");
+      const newPath = newFilePath.replace("https://uabcs.online/practicas", "");
+      await renameFileOnFTP(oldPath, newPath);
+    } catch (err) {
+      console.warn("No se pudo renombrar archivo en FTP:", err.message);
+    }
+
+    fields.push("status = ?");
+    values.push(updatedStatus);
+    fields.push("fileName = ?");
+    values.push(newFileName);
+    fields.push("filePath = ?");
+    values.push(newFilePath);
+  }
+
   if (updateData.documentType) {
     fields.push("documentType = ?");
     values.push(updateData.documentType);
-  }
-  if (updateData.fileName) {
-    fields.push("fileName = ?");
-    values.push(updateData.fileName);
-  }
-  if (updateData.filePath) {
-    fields.push("filePath = ?");
-    values.push(updateData.filePath);
-  }
-  if (updateData.status) {
-    fields.push("status = ?");
-    values.push(updateData.status);
   }
 
   if (fields.length === 0) {
@@ -179,7 +200,6 @@ const patchDocument = async (documentID, updateData) => {
   `;
 
   values.push(documentID);
-
   const [result] = await pool.query(query, values);
 
   if (result.affectedRows === 0) {
