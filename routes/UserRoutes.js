@@ -5,6 +5,7 @@ const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const rateLimit = require('express-rate-limit'); 
 const { getUserProfileAndRoles } = require('../controllers/UserController');
+const checkRole = require('../middlewares/checkRole');
 
 const {
     registerUserController,
@@ -30,8 +31,8 @@ router.post('/register', registerUserController);
 // Ruta para iniciar sesión (pública, protegida con loginLimiter)
 router.post('/login', loginLimiter, loginUserController);
 
-// Ruta para cerrar sesión (pública)
-router.get('/logout', logoutUserController);
+// Ruta para cerrar sesión 
+router.get('/logout', authMiddleware, logoutUserController);
 
 // Ruta para obtener el perfil del usuario autenticado (protegida)
 router.get('/me', authMiddleware, getUserProfileAndRoles);
@@ -45,12 +46,12 @@ router.get('/protected', authMiddleware, (req, res) => {
 });
 
 // Obtener usuario por ID (protegida)
-router.get('/:userID', authMiddleware, getUserByIDController);
+router.get('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), getUserByIDController);
 
-// Actualizar usuario parcialmente por ID (reemplaza PUT con PATCH)
-router.patch('/:userID', authMiddleware, patchUserController);
+// Actualizar usuario parcialmente por ID
+router.patch('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), patchUserController);
 
 // Eliminar lógicamente un usuario por ID (protegida)
-router.delete('/:userID', authMiddleware, deleteUserController);
+router.delete('/:userID', authMiddleware, checkRole(['SuperAdmin']), deleteUserController);
 
 module.exports = router;
