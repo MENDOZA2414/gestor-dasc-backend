@@ -3,14 +3,14 @@ const router = express.Router();
 const { uploadProfilePhoto } = require('../controllers/ProfileController');
 const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
-const rateLimit = require('express-rate-limit'); // Asegúrate de tener esta línea
+const rateLimit = require('express-rate-limit'); 
 
 const {
     registerUserController,
     loginUserController,
     logoutUserController,
     getUserByIDController,
-    updateUserController,
+    patchUserController,
     deleteUserController
 } = require('../controllers/UserController');
 
@@ -43,8 +43,8 @@ router.get('/protected', authMiddleware, (req, res) => {
 // Obtener usuario por ID (protegida)
 router.get('/:userID', authMiddleware, getUserByIDController);
 
-// Actualizar usuario por ID (protegida)
-router.put('/:userID', authMiddleware, updateUserController);
+// Actualizar usuario parcialmente por ID (reemplaza PUT con PATCH)
+router.patch('/:userID', authMiddleware, patchUserController);
 
 // Eliminar lógicamente un usuario por ID (protegida)
 router.delete('/:userID', authMiddleware, deleteUserController);

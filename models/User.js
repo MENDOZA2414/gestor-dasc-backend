@@ -87,29 +87,51 @@ const getUserByID = async (userID) => {
 };
 
 // Actualizar email y teléfono de un usuario si está activo
-const updateUser = async (userID, updateData) => {
-    const { email, phone } = updateData;
-    
-    // Validaciones básicas
-    if (!email || !phone) {
-        throw new Error('Faltan campos obligatorios');
+const patchUser = async (userID, updateData) => {
+    const fields = [];
+    const values = [];
+
+    if (updateData.email) {
+        // Validar que no esté en uso por otro usuario
+        const [[exists]] = await pool.query(
+        "SELECT userID FROM User WHERE email = ? AND userID != ? AND recordStatus = 'Activo'",
+        [updateData.email, userID]
+        );
+        if (exists) throw new Error("El correo electrónico ya está en uso");
+        fields.push("email = ?");
+        values.push(updateData.email);
     }
-    
+
+    if (updateData.phone) {
+        const [[exists]] = await pool.query(
+        "SELECT userID FROM User WHERE phone = ? AND userID != ? AND recordStatus = 'Activo'",
+        [updateData.phone, userID]
+        );
+        if (exists) throw new Error("El número de teléfono ya está en uso");
+        fields.push("phone = ?");
+        values.push(updateData.phone);
+    }
+
+    if (fields.length === 0) {
+        throw new Error("No se proporcionaron campos válidos para actualizar");
+    }
+
     const query = `
         UPDATE User
-        SET email = ?, phone = ?
+        SET ${fields.join(", ")}
         WHERE userID = ? AND recordStatus = 'Activo'
     `;
-    
-    const [result] = await pool.query(query, [email, phone, userID]);
-    
+
+    values.push(userID);
+    const [result] = await pool.query(query, values);
+
     if (result.affectedRows === 0) {
-        throw new Error('No se pudo actualizar el usuario o está eliminado');
+        throw new Error("No se pudo actualizar el usuario");
     }
-    
-    return { message: 'Usuario actualizado correctamente' };
+
+    return { message: "Usuario actualizado correctamente" };
 };
-    
+
 // Eliminar lógicamente un usuario (soft delete)
 const deleteUser = async (userID) => {
     const query = `UPDATE User SET recordStatus = 'Eliminado' WHERE userID = ?`;
@@ -127,6 +149,6 @@ module.exports = {
     authenticateUser,
     getActiveUsers,
     getUserByID,
-    updateUser,
+    patchUser,
     deleteUser
 };

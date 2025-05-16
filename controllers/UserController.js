@@ -1,10 +1,16 @@
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../config/db');
-const { registerUser, authenticateUser } = require('../models/User');
+const {
+  registerUser,
+  authenticateUser,
+  getUserByID,
+  patchUser,
+  deleteUser
+} = require('../models/User');
 
 // Registrar usuario
-const registerUserController = async (req, res) => {
+exports.registerUserController = async (req, res) => {
   const { email, password, phone, roleID, userTypeID } = req.body;
 
   if (!email || !password || !phone || !roleID || !userTypeID) {
@@ -22,7 +28,7 @@ const registerUserController = async (req, res) => {
 };
 
 // Iniciar sesión
-const loginUserController = async (req, res) => {
+exports.loginUserController = async (req, res) => {
   const { email, password, rememberMe, override = false } = req.body;
 
   try {
@@ -48,8 +54,7 @@ const loginUserController = async (req, res) => {
       { userID: user.userID, time: Date.now() },
       process.env.JWT_SECRET,
       { expiresIn: rememberMe ? '1d' : '1h' }
-    ); 
-    
+    );
 
     // Guardar en la base de datos
     await pool.query('UPDATE User SET sessionToken = ? WHERE userID = ?', [sessionToken, user.userID]);
@@ -99,7 +104,7 @@ const loginUserController = async (req, res) => {
 };
 
 // Cerrar sesión
-const logoutUserController = async (req, res) => {
+exports.logoutUserController = async (req, res) => {
   const cookieToken = req.cookies.token;
   const headerToken = req.headers.authorization?.replace('Bearer ', '');
   const token = cookieToken || headerToken;
@@ -123,7 +128,7 @@ const logoutUserController = async (req, res) => {
 };
 
 // Obtener usuario por ID (si está activo)
-const getUserByIDController = async (req, res) => {
+exports.getUserByIDController = async (req, res) => {
   const { userID } = req.params;
 
   try {
@@ -134,13 +139,13 @@ const getUserByIDController = async (req, res) => {
   }
 };
 
-// Actualizar email y teléfono de un usuario
-const updateUserController = async (req, res) => {
-  const { userID } = req.params;
-  const updateData = req.body;
-
+// Actualizar usuario parcialmente (email o teléfono)
+exports.patchUserController = async (req, res) => {
   try {
-    const result = await updateUser(userID, updateData);
+    const { userID } = req.params;
+    const updateData = req.body;
+
+    const result = await patchUser(userID, updateData);
     res.status(200).json(result);
   } catch (error) {
     res.status(400).send({ message: 'Error al actualizar usuario', error: error.message });
@@ -148,7 +153,7 @@ const updateUserController = async (req, res) => {
 };
 
 // Eliminar lógicamente un usuario
-const deleteUserController = async (req, res) => {
+exports.deleteUserController = async (req, res) => {
   const { userID } = req.params;
 
   try {
@@ -157,13 +162,4 @@ const deleteUserController = async (req, res) => {
   } catch (error) {
     res.status(500).send({ message: 'Error al eliminar el usuario', error: error.message });
   }
-};
-
-module.exports = {
-  registerUserController,
-  loginUserController,
-  logoutUserController,
-  getUserByIDController,
-  updateUserController,
-  deleteUserController
 };
