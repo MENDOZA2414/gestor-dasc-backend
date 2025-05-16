@@ -5,7 +5,7 @@ const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const rateLimit = require('express-rate-limit'); 
 const { getUserProfileAndRoles } = require('../controllers/UserController');
-const checkRole = require('../middlewares/checkRole');
+const checkRole = require('../middlewares/CheckRole');
 
 const {
     registerUserController,
