@@ -64,6 +64,11 @@ const streamDocumentByPath = async (req, res) => {
     return res.status(400).json({ error: "La ruta del archivo es requerida (query param 'path')." });
   }
 
+  // Seguridad básica: prevenir acceso fuera de /practices
+  if (path.includes("..") || path.startsWith("/")) {
+    return res.status(400).json({ error: "Ruta de archivo no válida." });
+  }
+
   const client = new ftp.Client();
   try {
     await client.access(ftpConfig);
@@ -74,9 +79,15 @@ const streamDocumentByPath = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `${disposition}; filename="${fileName}"`);
 
-    // Leer directamente del FTP
-    await client.downloadTo(res, `/practices/${path}`);
+    const fullFtpPath = `/practices/${path}`;
+    console.log(`Streaming archivo desde: ${fullFtpPath}`);
+
+    await client.downloadTo(res, fullFtpPath);
   } catch (err) {
+    if (err.code === 550) {
+      // Error 550 en FTP = archivo no encontrado
+      return res.status(404).json({ error: "Archivo no encontrado en el servidor." });
+    }
     console.error("Error al hacer stream del documento:", err.message);
     res.status(500).json({ error: "No se pudo obtener el documento" });
   } finally {
@@ -84,6 +95,8 @@ const streamDocumentByPath = async (req, res) => {
   }
 };
 
+
+// Subir un documento general
 const uploadGeneralDocument = async (req, res) => {
   upload(req, res, async function (err) {
     if (err) return res.status(400).json({ error: "Error al procesar archivo" });
@@ -122,30 +135,45 @@ const uploadGeneralDocument = async (req, res) => {
     ];
 
     let composedFileName = "";
+    let controlNumber = null;
+    let studentID = null;
 
-    if (documentosUnicos.includes(tipoDocumento)) {
-      composedFileName = `${tipoDocumento}_${status}.pdf`;
+    if (userType === "student") {
+      const [[studentRow]] = await db.query(
+        "SELECT studentID, controlNumber FROM Student WHERE userID = ?",
+        [userID]
+      );
+
+      if (!studentRow) {
+        return res.status(404).json({ error: "Alumno no encontrado para este usuario" });
+      }
+
+      controlNumber = studentRow.controlNumber;
+      studentID = studentRow.studentID;
+
+      if (documentosUnicos.includes(tipoDocumento)) {
+        composedFileName = `${tipoDocumento}_${status}_${controlNumber}.pdf`;
+      } else {
+        composedFileName = `${tipoDocumento}_${status}_${Date.now()}_${controlNumber}.pdf`;
+      }
     } else {
-      composedFileName = `${tipoDocumento}_${status}_${Date.now()}.pdf`;
+      if (documentosUnicos.includes(tipoDocumento)) {
+        composedFileName = `${tipoDocumento}_${status}.pdf`;
+      } else {
+        composedFileName = `${tipoDocumento}_${status}_${Date.now()}.pdf`;
+      }
     }
 
     const ftpPath = `/practices/${basePath}/documents/${composedFileName}`;
     const fullUrl = `https://uabcs.online/practicas${ftpPath}`;    
 
+    let ftpSubido = false;
+
     try {
-      // Subir archivo al FTP desde buffer
-      await uploadToFTP(req.file.buffer, ftpPath, { overwrite: true });
-    
+      // Crear carpeta si es estudiante
       if (userType === "student") {
-        const [[studentRow]] = await db.query("SELECT studentID FROM Student WHERE userID = ?", [userID]);
-    
-        if (!studentRow) {
-          return res.status(404).json({ error: "Alumno no encontrado para este usuario" });
-        }
-    
-        const studentID = studentRow.studentID;
         await createFtpStructure("student", userID);
-    
+
         try {
           await StudentDocumentation.saveDocument({
             studentID,
@@ -155,24 +183,33 @@ const uploadGeneralDocument = async (req, res) => {
             status
           });
         } catch (dbError) {
-          // Si falla la BD, borrar el archivo del FTP
-          const client = new ftp.Client();
-          await client.access(ftpConfig);
-          await client.remove(ftpPath);
-          client.close();
-          throw dbError;
+          return res.status(500).json({ error: "Error al guardar en la base de datos" });
         }
       }
-    
+
+      // Subir al FTP solo si la BD fue exitosa
+      await uploadToFTP(req.file.buffer, ftpPath, { overwrite: true });
+      ftpSubido = true;
+
       res.status(200).json({
         message: "Archivo subido correctamente",
         ftpPath: fullUrl
       });
-    
+
     } catch (error) {
       console.error("Error al subir el archivo:", error);
+
+      // Si el FTP se subió pero falló algo más (caso raro)
+      if (ftpSubido) {
+        const client = new ftp.Client();
+        await client.access(ftpConfig);
+        await client.remove(ftpPath);
+        client.close();
+      }
+
       res.status(500).json({ error: "Error al subir archivo o guardar en base de datos" });
-    }    
+    }
+
   });
 };
 
