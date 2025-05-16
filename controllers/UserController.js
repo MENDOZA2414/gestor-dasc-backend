@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
 const pool = require('../config/db');
 const {
   registerUser,
@@ -11,6 +10,7 @@ const {
 const {
   assignRolesToUser
 } = require('../models/UserRole'); 
+const UserRole = require('../models/UserRole');
 
 // Registrar usuario
 exports.registerUserController = async (req, res) => {
@@ -150,6 +150,33 @@ exports.getUserByIDController = async (req, res) => {
     res.status(200).json(user);
   } catch (error) {
     res.status(404).send({ message: 'Usuario no encontrado', error: error.message });
+  }
+};
+
+// Obtener perfil de usuario y roles
+exports.getUserProfileAndRoles = async (req, res) => {
+  try {
+    const userID = req.user.id;
+
+    const [userResult] = await pool.query(`
+      SELECT u.userID, u.email, u.phone, ut.userTypeName
+      FROM User u
+      JOIN UserType ut ON u.userTypeID = ut.userTypeID
+      WHERE u.userID = ? AND u.recordStatus = 'Activo'
+    `, [userID]);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado', error: 'Usuario no encontrado o eliminado' });
+    }
+
+    const user = userResult[0];
+    const roles = await UserRole.getRolesByUserID(userID);
+
+    res.status(200).json({ user, roles });
+
+  } catch (error) {
+    console.error('Error en /me:', error.message);
+    res.status(500).json({ message: 'Error al obtener perfil y roles' });
   }
 };
 

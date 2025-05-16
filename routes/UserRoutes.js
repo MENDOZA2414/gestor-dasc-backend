@@ -4,6 +4,7 @@ const { uploadProfilePhoto } = require('../controllers/ProfileController');
 const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const rateLimit = require('express-rate-limit'); 
+const { getUserProfileAndRoles } = require('../controllers/UserController');
 
 const {
     registerUserController,
@@ -31,6 +32,9 @@ router.post('/login', loginLimiter, loginUserController);
 
 // Ruta para cerrar sesión (pública)
 router.get('/logout', logoutUserController);
+
+// Ruta para obtener el perfil del usuario autenticado (protegida)
+router.get('/me', authMiddleware, getUserProfileAndRoles);
 
 // Subir o actualizar foto de perfil (protegida)
 router.post('/upload-profile-photo', authMiddleware, uploadProfile, uploadProfilePhoto);
