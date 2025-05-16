@@ -1,7 +1,7 @@
 const path = require("path");
 const db = require("../config/db");
 const uploadToFTP = require("../utils/FtpUploader");
-const { deleteFileFromFTP } = require("../utils/FtpUtils"); // Asegúrate de tener esta función
+const { deleteFileFromFTP } = require("../utils/FtpUtils");
 
 const userTypeMap = {
   1: { table: "InternalAssessor", column: "photo" },
