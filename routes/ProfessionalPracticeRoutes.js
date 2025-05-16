@@ -1,35 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const professionalPracticeController = require('../controllers/ProfessionalPracticeController');
+const authMiddleware = require('../middlewares/AuthMiddleware');
+const checkRole = require('../middlewares/CheckRole');
+const checkUserType = require('../middlewares/CheckUserType');
 
 // Obtener todas las prácticas con filtros opcionales (uso administrativo)
-router.get('/', professionalPracticeController.getAllPractices);
+router.get(
+  '/',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  professionalPracticeController.getAllPractices
+);
 
 // Obtener la práctica profesional registrada de un estudiante
-router.get('/student/:studentID', professionalPracticeController.getPracticeByStudentID);
+router.get(
+  '/student/:studentID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['student', 'internalAssessor']),
+  professionalPracticeController.getPracticeByStudentID
+);
 
 // Obtener todas las prácticas asignadas a una empresa
-router.get('/company/:companyID', professionalPracticeController.getPracticesByCompanyID);
+router.get(
+  '/company/:companyID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['company']),
+  professionalPracticeController.getPracticesByCompanyID
+);
 
 // Obtener todas las prácticas asignadas a un asesor externo
-router.get('/external-assessor/:externalAssessorID', professionalPracticeController.getPracticesByExternalAssessorID);
+router.get(
+  '/external-assessor/:externalAssessorID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['externalAssessor']),
+  professionalPracticeController.getPracticesByExternalAssessorID
+);
 
 // Obtener todas las prácticas asignadas a un asesor interno
-router.get('/internal-assessor/:internalAssessorID', professionalPracticeController.getPracticesByInternalAssessorID);
+router.get(
+  '/internal-assessor/:internalAssessorID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['internalAssessor']),
+  professionalPracticeController.getPracticesByInternalAssessorID
+);
 
 // Obtener la práctica de un alumno específico asignado a un asesor interno
-router.get('/internal-assessor/:internalAssessorID/student/:studentID', professionalPracticeController.getStudentPracticeByAssessor);
+router.get(
+  '/internal-assessor/:internalAssessorID/student/:studentID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['internalAssessor']),
+  professionalPracticeController.getStudentPracticeByAssessor
+);
 
 // Obtener todos los estudiantes asignados a un asesor externo
-router.get('/students/external-assessor/:externalAssessorID', professionalPracticeController.getStudentsByExternalAssessorID);
+router.get(
+  '/students/external-assessor/:externalAssessorID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['externalAssessor']),
+  professionalPracticeController.getStudentsByExternalAssessorID
+);
 
 // Obtener todos los estudiantes que están haciendo prácticas en una empresa específica
-router.get('/students/company/:companyID', professionalPracticeController.getStudentsByCompanyID);
+router.get(
+  '/students/company/:companyID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  checkUserType(['company']),
+  professionalPracticeController.getStudentsByCompanyID
+);
 
 // Actualizar una práctica profesional
-router.patch('/:practiceID', professionalPracticeController.patchPractice);
+router.patch(
+  '/:practiceID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  professionalPracticeController.patchPractice
+);
 
 // Eliminar lógicamente una práctica profesional
-router.delete('/:practiceID', professionalPracticeController.deletePractice);
+router.delete(
+  '/:practiceID',
+  authMiddleware,
+  checkRole(['SuperAdmin']),
+  professionalPracticeController.deletePractice
+);
 
 module.exports = router;
