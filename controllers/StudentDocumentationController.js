@@ -144,7 +144,20 @@ exports.deleteDocument = async (req, res) => {
       return res.status(400).json({ message: 'Falta el documentID en la URL' });
     }
 
-    const result = await StudentDocumentation.deleteDocument(documentID);
+    // Obtener información actual del documento
+    const document = await StudentDocumentation.getDocumentByID(documentID);
+
+    if (!document) {
+      return res.status(404).json({ message: 'Documento no encontrado' });
+    }
+
+    // Llamar a la lógica de eliminación lógica y renombrado
+    const result = await StudentDocumentation.deleteDocument(
+      documentID,
+      document.fileName,
+      document.filePath
+    );
+
     res.status(200).send(result);
   } catch (err) {
     console.error("Error en deleteDocument:", err.message);

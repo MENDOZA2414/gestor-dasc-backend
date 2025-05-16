@@ -75,7 +75,6 @@ const approveDocument = async (documentID, fileName, filePath) => {
   return { message: "Documento aprobado correctamente" };
 };
 
-
 // Rechazar un documento
 const rejectDocument = async (documentID, fileName, filePath) => {
   const newFileName = fileName.replace("EnRevision", "Rechazado");
@@ -119,49 +118,30 @@ const markAsInReview = async (documentID, fileName, filePath) => {
 };
 
 // Eliminar un documento (eliminar lógico)
-// Eliminar un documento (eliminación lógica)
-const deleteDocument = async (documentID) => {
-  // Obtener info actual del documento
-  const [[document]] = await pool.query(
-    "SELECT fileName, filePath FROM StudentDocumentation WHERE documentID = ? AND recordStatus = 'Activo'",
-    [documentID]
-  );
-
-  if (!document) {
-    throw new Error("Documento no encontrado");
+const deleteDocument = async (documentID, fileName, filePath) => {
+  if (!fileName || !filePath) {
+    throw new Error("Faltan datos para renombrar el archivo en el FTP.");
   }
 
-  // Renombrar el archivo (cambia el estado en el nombre)
-  const newFileName = document.fileName.replace(/(Pendiente|EnRevision|Aceptado|Rechazado)/, "Eliminado");
-  const newFilePath = document.filePath.replace(document.fileName, newFileName);
-
-  // Renombrar en FTP
-  const ftpOldPath = document.filePath.replace("https://uabcs.online/practicas", "");
+  const newFileName = fileName.replace(/(Pendiente|EnRevision|Aceptado|Rechazado)/, "Eliminado");
+  const newFilePath = filePath.replace(fileName, newFileName);
+  const ftpOldPath = filePath.replace("https://uabcs.online/practicas", "");
   const ftpNewPath = newFilePath.replace("https://uabcs.online/practicas", "");
 
-  const ftpClient = require("basic-ftp");
-  const client = new ftpClient.Client();
-  const ftpConfig = require("../config/ftpConfig");
-
   try {
-    await client.access(ftpConfig);
-    await client.rename(ftpOldPath, ftpNewPath);
-  } catch (error) {
-    console.warn("⚠️ No se pudo renombrar en FTP:", error.message);
-  } finally {
-    client.close();
+    await renameFileOnFTP(ftpOldPath, ftpNewPath);
+  } catch (err) {
+    console.warn("⚠️ No se pudo renombrar el archivo en el FTP:", err.message);
+    // Aún así se procede a marcar como eliminado en la BD
   }
 
-  // Actualizar en BD
-  const updateQuery = `
+  const query = `
     UPDATE StudentDocumentation
-    SET recordStatus = 'Eliminado',
-        fileName = ?,
-        filePath = ?,
-        status = 'Eliminado'
+    SET fileName = ?, filePath = ?, status = 'Eliminado', recordStatus = 'Eliminado'
     WHERE documentID = ?
   `;
-  await pool.query(updateQuery, [newFileName, newFilePath, documentID]);
+
+  await pool.query(query, [newFileName, newFilePath, documentID]);
 
   return { message: 'Documento eliminado correctamente' };
 };
