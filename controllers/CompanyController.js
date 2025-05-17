@@ -57,7 +57,6 @@ const registerCompany = async (req, res) => {
     }
 };
 
-
 // Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {
     try {
@@ -88,8 +87,6 @@ const patchCompanyController = async (req, res) => {
     }
 };
 
-
-// Exportar las funciones del controlador
 module.exports = {
     getCompanyByID,
     getAllCompanies,

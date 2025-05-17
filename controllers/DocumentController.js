@@ -95,13 +95,31 @@ const streamDocumentByPath = async (req, res) => {
   }
 };
 
-
 // Subir un documento general
 const uploadGeneralDocument = async (req, res) => {
   upload(req, res, async function (err) {
     if (err) return res.status(400).json({ error: "Error al procesar archivo" });
 
-    const { userType, userID, tipoDocumento } = req.body;
+    const { id: userID, userTypeID } = req.user;
+    const { tipoDocumento } = req.body;
+
+    // Función para traducir el tipo numérico al texto usado en el sistema
+    const mapUserTypeIDToType = (id) => {
+      switch (id) {
+        case 2: return 'student';
+        case 1: return 'internalAssessor';
+        case 3: return 'externalAssessor';
+        case 4: return 'company';
+        case 5: return 'admin';
+        default: return null;
+      }
+    };
+
+    const userType = mapUserTypeIDToType(userTypeID);
+
+    if (!userType) {
+      return res.status(400).json({ error: "Tipo de usuario no válido" });
+    }
 
     if (!userType || !userID || !tipoDocumento || !req.file) {
       return res.status(400).json({ error: "Datos incompletos" });
