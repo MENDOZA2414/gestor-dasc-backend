@@ -1,26 +1,53 @@
-// Rutas para gestionar las entidades receptoras (Company).
-
 const express = require('express');
 const router = express.Router();
 const companyController = require('../controllers/CompanyController');
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
+const authMiddleware = require('../middlewares/AuthMiddleware');
+const checkRole = require('../middlewares/CheckRole');
 
 // Obtener todas las entidades receptoras.
-router.get('/all', companyController.getAllCompanies);
+router.get(
+  '/all',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  companyController.getAllCompanies
+);
 
 // Obtener entidades receptoras filtradas por estatus.
-router.get('/', companyController.getCompaniesByStatus);
+router.get(
+  '/',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  companyController.getCompaniesByStatus
+);
 
 // Obtener una entidad receptora por ID.
-router.get('/:id', companyController.getCompanyByID);
+router.get(
+    '/:id',
+    authMiddleware,
+    companyController.getCompanyByID
+);
 
 // Registrar una nueva entidad receptora.
-router.post('/register', profileUploadMiddleware, companyController.registerCompany);
+router.post(
+    '/register',
+    profileUploadMiddleware,
+    companyController.registerCompany
+);
 
 // Eliminar una entidad receptora por ID.
-router.delete('/:companyID', companyController.deleteCompany);
+router.delete(
+  '/:companyID',
+  authMiddleware,
+  checkRole(['SuperAdmin']),
+  companyController.deleteCompany
+);
 
 // Actualizar los datos de una entidad receptora por ID.
-router.patch('/:companyID', companyController.patchCompanyController);
+router.patch(
+  '/:companyID',
+  authMiddleware,
+  companyController.patchCompanyController
+);
 
 module.exports = router;

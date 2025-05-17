@@ -4,87 +4,204 @@ const Company = require('../models/Company');
 
 // Obtener una entidad receptora por ID
 const getCompanyByID = async (req, res) => {
-    try {
-        const companyID = req.params.id;
-        const company = await Company.getCompanyByID(companyID);
-        res.status(200).json(company);
-    } catch (error) {
-        console.error('Error al obtener la entidad receptora:', error.message);
-        res.status(500).json({ message: 'No se pudo obtener la entidad receptora.' });
+  try {
+    const companyID = parseInt(req.params.id);
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+
+    const company = await Company.getCompanyByID(companyID);
+
+    if (!company || company.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
     }
+
+    // Obtener roles del usuario autenticado
+    const [rolesRows] = await db.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+    const isOwner = userTypeID === 4 && requesterID === companyID;
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ message: 'No tienes permiso para ver esta entidad receptora.' });
+    }
+
+    res.status(200).json(company);
+
+  } catch (error) {
+    console.error('Error al obtener la entidad receptora:', error.message);
+    res.status(500).json({ message: 'No se pudo obtener la entidad receptora.', error: error.message });
+  }
 };
 
 // Obtener todas las entidades receptoras
 const getAllCompanies = async (req, res) => {
-    try {
-        const companies = await Company.getAllCompanies();
-        res.status(200).json(companies);
-    } catch (error) {
-        console.error('Error al obtener todas las entidades:', error.message);
-        res.status(500).json({ message: 'No se pudo obtener la lista de entidades.' });
+  try {
+    const companies = await Company.getAllCompanies();
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron entidades registradas.' });
     }
+
+    res.status(200).json(companies);
+
+  } catch (error) {
+    console.error('Error al obtener todas las entidades:', error.message);
+    res.status(500).json({ message: 'No se pudo obtener la lista de entidades.', error: error.message });
+  }
 };
 
 // Obtener entidades receptoras por estatus
 const getCompaniesByStatus = async (req, res) => {
-    try {
-        const { status } = req.query; // Status filtrado de la query
-        const companies = await Company.getCompaniesByStatus(status);
-        res.status(200).json(companies);
-    } catch (error) {
-        console.error('Error al filtrar entidades:', error.message);
-        res.status(500).json({ message: 'No se pudo filtrar por estatus.' });
+  try {
+    const { status } = req.query;
+
+    const validStatuses = ['Pendiente', 'Aceptado', 'Rechazado'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Parámetro "status" inválido o no proporcionado.' });
     }
+
+    const companies = await Company.getCompaniesByStatus(status);
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: `No se encontraron entidades con estatus "${status}".` });
+    }
+
+    res.status(200).json(companies);
+
+  } catch (error) {
+    console.error('Error al filtrar entidades:', error.message);
+    res.status(500).json({ message: 'No se pudo filtrar por estatus.', error: error.message });
+  }
 };
 
 // Registrar una nueva entidad receptora
 const registerCompany = async (req, res) => {
-    try {
-        const companyData = {
-            ...req.body,
-            profilePhotoName: req.generatedFileName || null,
-            profilePhotoBuffer: req.bufferFile || null
-        };
+  try {
+    const {
+      email,
+      password,
+      phone,
+      companyName,
+      fiscalName,
+      rfc,
+      address,
+      state,
+      city,
+      zipCode
+    } = req.body;
 
-        const result = await Company.registerCompany(companyData);
-        res.status(201).json(result);
-    } catch (error) {
-        console.error('Error al registrar entidad:', error.message);
-        res.status(500).json({ 
-            message: 'No se pudo registrar la entidad.', 
-            error: error.message 
-        });
+    // Validación básica de campos obligatorios
+    if (
+      !email || !password || !phone || !companyName || !fiscalName ||
+      !rfc || !address || !state || !city || !zipCode
+    ) {
+      return res.status(400).json({ message: 'Faltan datos obligatorios para registrar la entidad.' });
     }
+
+    const companyData = {
+      email,
+      password,
+      phone,
+      companyName,
+      fiscalName,
+      rfc,
+      address,
+      state,
+      city,
+      zipCode,
+      status: 'Pendiente',
+      profilePhotoName: req.generatedFileName || null,
+      profilePhotoBuffer: req.bufferFile || null
+    };
+
+    const result = await Company.registerCompany(companyData);
+
+    res.status(201).json({
+      message: 'Entidad registrada correctamente. Será activada por un administrador.',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error al registrar entidad:', error.message);
+    res.status(500).json({
+      message: 'No se pudo registrar la entidad.',
+      error: error.message
+    });
+  }
 };
 
 // Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {
-    try {
-        const companyID = req.params.companyID;
-        const result = await Company.deleteCompany(companyID);
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error al eliminar entidad:', error.message);
-        res.status(500).json({ message: 'No se pudo eliminar la entidad.' });
+  try {
+    const companyID = parseInt(req.params.companyID);
+
+    // Verificar que exista y esté activa
+    const company = await Company.getCompanyByID(companyID);
+    if (!company || company.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Entidad no encontrada o ya eliminada.' });
     }
+
+    const result = await Company.deleteCompany(companyID);
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'No se pudo eliminar la entidad. Intenta de nuevo.' });
+    }
+
+    res.status(200).json({ message: 'Entidad eliminada correctamente.' });
+
+  } catch (error) {
+    console.error('Error al eliminar entidad:', error.message);
+    res.status(500).json({ message: 'No se pudo eliminar la entidad.', error: error.message });
+  }
 };
 
 // Actualizar una entidad receptora por ID
 const patchCompanyController = async (req, res) => {
-    try {
-        const companyID = req.params.companyID;
-        const updateData = req.body;
+  try {
+    const companyID = parseInt(req.params.companyID);
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+    const updateData = req.body;
 
-        if (!updateData || Object.keys(updateData).length === 0) {
-            return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
-        }
-
-        const result = await Company.patchCompany(companyID, updateData);
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error al actualizar entidad:', error.message);
-        res.status(500).json({ message: 'No se pudo actualizar la entidad.', error: error.message });
+    if (!updateData || Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
     }
+
+    // Verificar existencia de la entidad
+    const company = await Company.getCompanyByID(companyID);
+    if (!company || company.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
+    }
+
+    // Obtener roles del usuario autenticado
+    const [rolesRows] = await db.query(`
+      SELECT r.roleName
+      FROM UserRole ur
+      JOIN Role r ON ur.roleID = r.roleID
+      WHERE ur.userID = ?
+    `, [requesterID]);
+
+    const roles = rolesRows.map(r => r.roleName);
+    const isSuperAdmin = roles.includes('SuperAdmin');
+    const isOwner = userTypeID === 4 && requesterID === companyID;
+
+    if (!isSuperAdmin && !isOwner) {
+      return res.status(403).json({ message: 'No tienes permiso para modificar esta entidad.' });
+    }
+
+    const result = await Company.patchCompany(companyID, updateData);
+    res.status(200).json({ message: 'Entidad actualizada correctamente.', result });
+
+  } catch (error) {
+    console.error('Error al actualizar entidad:', error.message);
+    res.status(500).json({ message: 'No se pudo actualizar la entidad.', error: error.message });
+  }
 };
 
 module.exports = {
