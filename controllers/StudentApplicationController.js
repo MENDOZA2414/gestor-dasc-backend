@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('../config/db');
 const ftp = require("basic-ftp");
 const ftpConfig = require("../config/ftpConfig");
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
@@ -371,14 +372,8 @@ exports.patchApplicationController = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     if (!isAdmin && userTypeID !== 1) {

@@ -1,6 +1,7 @@
 // Controlador para gestionar las operaciones de asesores externos
 
 const ExternalAssessor = require('../models/ExternalAssessor');
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Registrar un asesor externo
 const registerExternalAssessorController = async (req, res) => {
@@ -65,14 +66,8 @@ const getExternalAssessorByIDController = async (req, res) => {
     }
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Validar permisos
@@ -122,14 +117,8 @@ const getExternalAssessorsByCompanyIDController = async (req, res) => {
     }
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, debe ser la empresa dueña
@@ -173,14 +162,8 @@ const patchExternalAssessorController = async (req, res) => {
     }
 
     // Verificar permisos
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
     const isSameCompany = userTypeID === 4 && assessor.companyID === requesterID;
 
@@ -218,14 +201,8 @@ const deleteExternalAssessorController = async (req, res) => {
     }
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isSuperAdmin = roles.includes('SuperAdmin');
     const isOwnerCompany = userTypeID === 4 && assessor.companyID === requesterID;
 

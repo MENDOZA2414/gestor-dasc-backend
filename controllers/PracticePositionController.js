@@ -1,4 +1,5 @@
 const PracticePosition = require('../models/PracticePosition');
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Obtener vacante por ID
 exports.getPositionByID = async (req, res) => {
@@ -14,14 +15,8 @@ exports.getPositionByID = async (req, res) => {
     }
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [userID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, aplicar restricciones
@@ -53,14 +48,8 @@ exports.getPositionsByCompanyID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que sea la empresa propietaria
@@ -114,14 +103,8 @@ exports.getPositionsByStatus = async (req, res) => {
     const userID = req.user.id;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [userID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, solo puede consultar status='Aceptado'
@@ -269,14 +252,8 @@ exports.patchPositionController = async (req, res) => {
     }
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que la empresa solo modifique su propia vacante y que no esté aceptada

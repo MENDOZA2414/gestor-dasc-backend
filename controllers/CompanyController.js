@@ -1,6 +1,7 @@
 // Controlador para gestionar las operaciones de entidades receptoras.
 
 const Company = require('../models/Company');
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Obtener una entidad receptora por ID
 const getCompanyByID = async (req, res) => {
@@ -16,14 +17,8 @@ const getCompanyByID = async (req, res) => {
     }
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+   const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
     const isOwner = userTypeID === 4 && requesterID === companyID;
 
@@ -180,14 +175,8 @@ const patchCompanyController = async (req, res) => {
     }
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isSuperAdmin = roles.includes('SuperAdmin');
     const isOwner = userTypeID === 4 && requesterID === companyID;
 

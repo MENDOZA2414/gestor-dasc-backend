@@ -1,6 +1,7 @@
 // Controlador para gestionar prácticas profesionales
 
 const ProfessionalPractice = require('../models/ProfessionalPractice');
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Obtener la práctica profesional registrada de un estudiante
 exports.getPracticeByStudentID = async (req, res) => {
@@ -10,14 +11,8 @@ exports.getPracticeByStudentID = async (req, res) => {
     const studentID = parseInt(req.params.studentID);
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, aplicar restricciones
@@ -63,14 +58,8 @@ exports.getPracticesByCompanyID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, verificar que la empresa solo consulte sus prácticas
@@ -102,14 +91,8 @@ exports.getPracticesByExternalAssessorID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Validar acceso si no es admin
@@ -141,14 +124,8 @@ exports.getPracticesByInternalAssessorID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que sea el asesor interno correcto
@@ -181,14 +158,8 @@ exports.getStudentPracticeByAssessor = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que el asesor sea el mismo y el alumno esté asignado
@@ -230,14 +201,8 @@ exports.getAllPractices = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     if (!isAdmin) {
@@ -266,14 +231,8 @@ exports.getStudentsByExternalAssessorID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que sea el asesor correcto
@@ -305,14 +264,8 @@ exports.getStudentsByCompanyID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que sea la empresa correcta

@@ -1,4 +1,5 @@
 const InternalAssessor = require('../models/InternalAssessor');
+const getUserRoles = require('../utils/GetUserRoles');
 
 // Registrar un asesor interno
 const registerInternalAssessorController = async (req, res) => {
@@ -49,14 +50,8 @@ const getInternalAssessorByID = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     // Obtener roles del usuario autenticado
-    const [rolesRows] = await db.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
+    const roles = await getUserRoles(requesterID);
 
-    const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
     // Si no es admin, validar que sea el propio asesor
