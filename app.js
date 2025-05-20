@@ -21,14 +21,14 @@ const userRoleRoutes = require('./routes/UserRoleRoutes');
 
 const app = express();
 
+// Configuración de CORS 
 const allowedOrigins = [
-  'https://gestor-dasc-frontend.vercel.app', // Origen de producción
-  'http://localhost:5173' // Origen local para desarrollo
+  'https://gestor-dasc-frontend.vercel.app', // Producción
+  'http://localhost:5173' // Desarrollo local
 ];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Permitir solicitudes sin origen (por ejemplo, Postman) o que coincidan con los permitidos
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -36,32 +36,35 @@ const corsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true // Habilitar el envío de cookies y credenciales en las solicitudes
+  credentials: true
 };
 
-// Usar CORS como middleware global con las opciones configuradas
+// CORS middleware
 app.use(cors(corsOptions));
 
-// Seguridad general con Helmet
+// Seguridad general
 app.use(helmet());
 
-// Limitar cantidad de peticiones globales
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: 'Demasiadas solicitudes desde esta IP, intenta más tarde.'
-});
-app.use(limiter);
-
-// Middlewares
+// Middlewares básicos
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Ruta raíz simple para verificar que el servidor está en funcionamiento
+// Rate limit solo para login y registro
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Máximo 100 intentos por IP
+  message: 'Demasiados intentos de autenticación, intenta más tarde.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Aplica limitador solo a rutas sensibles
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/register', authLimiter); 
+
+// Ruta raíz simple
 app.get('/', (req, res) => {
   res.json({ message: 'API running successfully' });
 });
