@@ -23,6 +23,14 @@ router.get(
   externalAssessorController.getAllExternalAssessorsController
 );
 
+// Ruta para contar asesores externos
+router.get(
+  '/count',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  externalAssessorController.countExternalAssessorsController
+);
+
 // Obtener un asesor externo por ID
 router.get(
   '/:id',

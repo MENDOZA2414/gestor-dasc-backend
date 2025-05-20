@@ -195,11 +195,19 @@ const patchCompany = async (companyID, updateData) => {
     return { message: "Entidad receptora actualizada correctamente" };
 };
 
+// Cuenta el número total de entidades receptoras activas.
+const countCompanies = async () => {
+  const query = 'SELECT COUNT(*) AS total FROM Company WHERE recordStatus = "Activo"';
+  const [results] = await pool.query(query);
+  return results[0]; 
+};
+
 module.exports = {
     registerCompany,
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,
     deleteCompany,
-    patchCompany
+    patchCompany,
+    countCompanies
 };

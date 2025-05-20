@@ -190,11 +190,19 @@ const deleteExternalAssessor = async (externalAssessorID) => {
     }
 };
 
+// Contar asesores externos
+const countExternalAssessors = async () => {
+  const query = 'SELECT COUNT(*) AS total FROM ExternalAssessor WHERE recordStatus = "Activo"';
+  const [results] = await pool.query(query);
+  return results[0]; 
+};
+
 module.exports = {
     registerExternalAssessor,
     getExternalAssessorByID,
     getAllExternalAssessors,
     getExternalAssessorsByCompanyID,
     patchExternalAssessor,
-    deleteExternalAssessor
+    deleteExternalAssessor,
+    countExternalAssessors
 };

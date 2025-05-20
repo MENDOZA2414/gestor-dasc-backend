@@ -13,9 +13,9 @@ router.post(
   internalAssessorController.registerInternalAssessorController
 );
 
-// Ruta para probar la conexión y contar el número de asesores internos
+// Ruta para contar el número de asesores internos
 router.get(
-  '/testConnection',
+  '/count',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
   internalAssessorController.countInternalAssessors

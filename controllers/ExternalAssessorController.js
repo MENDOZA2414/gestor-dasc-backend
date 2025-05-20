@@ -219,6 +219,17 @@ const deleteExternalAssessorController = async (req, res) => {
   }
 };
 
+// Contar asesores externos
+const countExternalAssessorsController = async (req, res) => {
+  try {
+    const result = await ExternalAssessor.countExternalAssessors();
+    res.status(200).json({ total: result.total });
+  } catch (error) {
+    console.error('Error al contar asesores externos:', error.message);
+    res.status(500).json({ message: 'Error al contar asesores externos', error: error.message });
+  }
+};
+
 module.exports = {
     registerExternalAssessorController,
     getExternalAssessorByIDController,
@@ -226,4 +237,5 @@ module.exports = {
     getExternalAssessorsByCompanyIDController,
     patchExternalAssessorController,
     deleteExternalAssessorController,
+    countExternalAssessorsController
 };

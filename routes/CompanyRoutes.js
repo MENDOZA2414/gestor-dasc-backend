@@ -21,6 +21,14 @@ router.get(
   companyController.getCompaniesByStatus
 );
 
+// Contar entidades receptoras
+router.get(
+  '/count',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  companyController.countCompaniesController
+);
+
 // Obtener una entidad receptora por ID.
 router.get(
     '/:id',

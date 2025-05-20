@@ -193,11 +193,24 @@ const patchCompanyController = async (req, res) => {
   }
 };
 
+// Contar el número total de entidades receptoras
+const countCompaniesController = async (req, res) => {
+  try {
+    const result = await Company.countCompanies();
+    res.status(200).json({ total: result.total });
+  } catch (error) {
+    console.error('Error al contar entidades:', error.message);
+    res.status(500).json({ message: 'Error al contar entidades receptoras.', error: error.message });
+  }
+};
+
+
 module.exports = {
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,
     registerCompany,
     deleteCompany,
-    patchCompanyController
+    patchCompanyController,
+    countCompaniesController
 };
