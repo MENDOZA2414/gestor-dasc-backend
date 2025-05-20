@@ -95,9 +95,9 @@ const getAllInternalAssessors = async () => {
 
 // Contar el número de asesores internos
 const countInternalAssessors = async () => {
-    const query = 'SELECT COUNT(*) as count FROM InternalAssessor WHERE recordStatus = "Activo"';
-    const [results] = await pool.query(query);
-    return results[0].count;
+  const query = 'SELECT COUNT(*) as count FROM InternalAssessor WHERE recordStatus = "Activo"';
+  const [results] = await pool.query(query);
+  return { total: results[0].count };
 };
 
 // Eliminar lógicamente un asesor interno y su usuario
