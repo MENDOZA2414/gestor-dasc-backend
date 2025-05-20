@@ -93,13 +93,13 @@ const getAllInternalAssessors = async (req, res) => {
 
 // Contar asesores internos (prueba de conexión)
 const countInternalAssessors = async (req, res) => {
-    try {
-        const count = await InternalAssessor.countInternalAssessors();
-        res.status(200).json({ message: 'Consulta exitosa', count });
-    } catch (error) {
-        console.error('Error en la consulta de prueba:', error.message);
-        res.status(500).json({ message: 'Error en el servidor ejecutando la consulta de prueba', error: error.message });
-    }
+  try {
+    const count = await InternalAssessor.countInternalAssessors();
+    res.status(200).json({ total: count }); 
+  } catch (error) {
+    console.error('Error en la consulta de prueba:', error.message);
+    res.status(500).json({ message: 'Error en el servidor ejecutando la consulta de prueba', error: error.message });
+  }
 };
 
 // Eliminar un asesor interno por ID (eliminación lógica)
