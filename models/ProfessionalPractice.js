@@ -253,6 +253,33 @@ const getStudentsByCompanyID = async (companyID) => {
     return results;
 };
 
+// Obtener las 5 empresas con más estudiantes realizando prácticas
+const getTopCompaniesByStudentCount = async () => {
+  const query = `
+    SELECT 
+      C.companyID,
+      C.companyName,
+      COUNT(PP.practiceID) AS studentCount
+    FROM ProfessionalPractice PP
+    JOIN Company C ON PP.companyID = C.companyID
+    WHERE PP.recordStatus = 'Activo'
+    GROUP BY C.companyID
+    ORDER BY studentCount DESC
+    LIMIT 5
+  `;
+
+  const [topCompanies] = await pool.query(query);
+
+  const totalQuery = `
+    SELECT COUNT(*) AS totalStudents
+    FROM ProfessionalPractice
+    WHERE recordStatus = 'Activo'
+  `;
+  const [[{ totalStudents }]] = await pool.query(totalQuery);
+
+  return { totalStudents, topCompanies };
+};
+
 // Editar una práctica profesional existente
 const patchPractice = async (practiceID, updateData) => {
   const fields = [];
@@ -318,6 +345,7 @@ module.exports = {
     getAllPractices,
     getStudentsByExternalAssessorID,
     getStudentsByCompanyID,
+    getTopCompaniesByStudentCount,
     patchPractice,
     deletePractice
 };

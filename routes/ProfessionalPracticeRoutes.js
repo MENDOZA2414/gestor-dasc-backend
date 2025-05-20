@@ -76,6 +76,14 @@ router.get(
   professionalPracticeController.getStudentsByCompanyID
 );
 
+// Obtener el top 5 de entidades más solicitadas por alumnos (para dashboard)
+router.get(
+  '/stats/top-companies',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  professionalPracticeController.getTopCompaniesStats
+);
+
 // Actualizar una práctica profesional
 router.patch(
   '/:practiceID',

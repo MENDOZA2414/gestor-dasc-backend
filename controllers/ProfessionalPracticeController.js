@@ -289,6 +289,25 @@ exports.getStudentsByCompanyID = async (req, res) => {
   }
 };
 
+// Obtener estadísticas de prácticas por carrera
+exports.getTopCompaniesStats = async (req, res) => {
+  try {
+    const requesterID = req.user.id;
+    const roles = await getUserRoles(requesterID);
+
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Solo administradores pueden acceder a esta información.' });
+    }
+
+    const result = await ProfessionalPractice.getTopCompaniesByStudentCount();
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error al obtener el top de entidades:", error.message);
+    res.status(500).json({ message: "No se pudo obtener la estadística", error: error.message });
+  }
+};
+
 // Actualizar información de una práctica profesional
 exports.patchPractice = async (req, res) => {
   try {
