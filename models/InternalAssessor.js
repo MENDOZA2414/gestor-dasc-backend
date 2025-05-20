@@ -35,7 +35,7 @@ const registerInternalAssessor = async (assessorData) => {
 
         const [[{ internalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS internalAssessorID");
 
-        await connection.commit(); // Confirmar transacción primero
+        await connection.commit();
 
         // Crear carpeta FTP
         await createFtpStructure("internalAssessor", internalAssessorID);
@@ -76,13 +76,9 @@ const getInternalAssessorByID = async (internalAssessorID) => {
     const query = 'SELECT * FROM InternalAssessor WHERE internalAssessorID = ? AND recordStatus = "Activo"';
     const [results] = await pool.query(query, [internalAssessorID]);
     if (results.length > 0) {
-        const assessor = results[0];
-        if (assessor.photo) {
-            assessor.photo = assessor.photo.toString('base64');
-        }
-        return assessor;
+        return results[0];
     } else {
-        throw new Error('Internal Assessor does not exist');
+        return null;
     }
 };
 
@@ -95,9 +91,9 @@ const getAllInternalAssessors = async () => {
 
 // Contar el número de asesores internos
 const countInternalAssessors = async () => {
-  const query = 'SELECT COUNT(*) as count FROM InternalAssessor WHERE recordStatus = "Activo"';
+  const query = 'SELECT COUNT(*) as total FROM InternalAssessor WHERE recordStatus = "Activo"';
   const [results] = await pool.query(query);
-  return { total: results[0].count };
+  return results[0];
 };
 
 // Eliminar lógicamente un asesor interno y su usuario

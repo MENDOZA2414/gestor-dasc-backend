@@ -95,10 +95,10 @@ const getAllInternalAssessors = async (req, res) => {
 const countInternalAssessors = async (req, res) => {
   try {
     const count = await InternalAssessor.countInternalAssessors();
-    res.status(200).json({ total: count }); 
+    res.status(200).json({ total: count.total });
   } catch (error) {
-    console.error('Error en la consulta de prueba:', error.message);
-    res.status(500).json({ message: 'Error en el servidor ejecutando la consulta de prueba', error: error.message });
+    console.error('Error al contar asesores internos:', error.message);
+    res.status(500).json({ message: 'Error al contar asesores internos', error: error.message });
   }
 };
 
