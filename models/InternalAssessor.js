@@ -3,6 +3,8 @@ const { registerUser } = require('./User');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const uploadToFTP = require('../utils/FtpUploader'); 
 const validateInternalAssessorData = require('../utils/ValidateInternalAssessorData');
+const { assignRolesToUserWithConnection } = require('../models/UserRole');
+
 
 // Registrar un asesor interno
 const registerInternalAssessor = async (assessorData) => {
@@ -20,7 +22,10 @@ const registerInternalAssessor = async (assessorData) => {
             internalAssessorStatus = 'Activo'
         } = assessorData;
 
-        const userID = await registerUser(connection, email, password, phone, 1); // 1 = asesor interno
+        const userID = await registerUser(connection, email, password, phone, 1); // 1 Tipo: Asesor Interno
+
+        // Asignar rol por defecto: Usuario (roleID = 3)
+        await assignRolesToUserWithConnection(connection, userID, [3]);
 
         // Insertar con photo = null inicialmente
         const insertQuery = `

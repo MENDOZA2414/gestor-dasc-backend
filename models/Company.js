@@ -5,6 +5,8 @@ const { registerUser } = require('./User');
 const uploadToFTP = require('../utils/FtpUploader'); 
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const validateCompanyData = require('../utils/ValidateCompanyData');
+const { assignRolesToUserWithConnection } = require('../models/UserRole');
+
 
 // Registra una nueva entidad receptora en la base de datos.
 const registerCompany = async (companyData) => {
@@ -36,7 +38,10 @@ const registerCompany = async (companyData) => {
             throw new Error('RFC, nombre fiscal y nombre de la empresa son obligatorios');
         }
 
-        const userID = await registerUser(connection, email, password, phone, 4); 
+        const userID = await registerUser(connection, email, password, phone, 4); // 4 Tipo: Entidad Receptora
+
+        // Asignar rol por defecto: Usuario (roleID = 3)
+        await assignRolesToUserWithConnection(connection, userID, [3]);
 
             // Insertar con photo = null temporalmente
             const insertQuery = `

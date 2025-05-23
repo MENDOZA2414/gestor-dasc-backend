@@ -27,11 +27,11 @@ exports.registerUserController = async (req, res) => {
 
       const userID = await registerUser(connection, email, password, phone, userTypeID);
 
-      // Asignar rol por defecto: Usuario (roleID = 3)
-      await assignRolesToUser(userID, [3]);
-
       await connection.commit();
-      res.status(201).send({ message: 'Usuario registrado con éxito' });
+      res.status(201).send({
+        message: 'Usuario registrado con éxito',
+        userID
+      });
     } catch (error) {
       await connection.rollback();
       throw error;

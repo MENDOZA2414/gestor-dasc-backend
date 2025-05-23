@@ -23,6 +23,16 @@ const assignRolesToUser = async (userID, roleIDs) => {
     await pool.query(query, [values]);
 };
 
+const assignRolesToUserWithConnection = async (connection, userID, roleIDs) => {
+  if (!Array.isArray(roleIDs) || roleIDs.length === 0) {
+    throw new Error('Se requiere una lista válida de roleIDs');
+  }
+
+  const values = roleIDs.map(roleID => [userID, roleID]);
+  const query = `INSERT INTO UserRole (userID, roleID) VALUES ?`;
+  await connection.query(query, [values]);
+};
+
 /// Eliminar todos los roles asignados actualmente a un usuario
 const deleteRolesFromUser = async (userID) => {
     const query = `DELETE FROM UserRole WHERE userID = ?`;
@@ -38,6 +48,7 @@ const getValidRoleIDs = async (roleIDs) => {
 module.exports = {
     getRolesByUserID,
     assignRolesToUser,
+    assignRolesToUserWithConnection,
     deleteRolesFromUser,
     getValidRoleIDs
 };

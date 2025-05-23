@@ -4,6 +4,8 @@ const pool = require('../config/db');
 const { registerUser } = require('./User');
 const uploadToFTP = require('../utils/FtpUploader');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
+const { assignRolesToUserWithConnection } = require('../models/UserRole');
+
 
 // Registrar un asesor externo
 const registerExternalAssessor = async (assessorData) => {
@@ -22,7 +24,10 @@ const registerExternalAssessor = async (assessorData) => {
             throw new Error('Datos obligatorios faltantes para registrar el asesor externo');
         }
 
-        const userID = await registerUser(connection, email, password, phone, 3); // userTypeID: 3
+        const userID = await registerUser(connection, email, password, phone, 3); // 3 Tipo: Asesor Externo
+
+        // Asignar rol por defecto: Usuario (roleID = 3)
+        await assignRolesToUserWithConnection(connection, userID, [3]);
 
         // Insertar con photo temporal
         const insertQuery = `

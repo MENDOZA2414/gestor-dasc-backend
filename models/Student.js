@@ -2,8 +2,8 @@ const pool = require('../config/db');
 const { registerUser } = require('./User');
 const validateStudentData = require('../utils/ValidateStudentData');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
-const path = require("path");
-const fs = require("fs");
+const { assignRolesToUserWithConnection } = require('../models/UserRole');
+
 const uploadToFTP = require('../utils/FtpUploader'); 
 
 
@@ -43,7 +43,10 @@ const registerStudent = async (studentData) => {
     }
 
     // Registrar usuario
-    const userID = await registerUser(connection, email, password, phone, 2);
+    const userID = await registerUser(connection, email, password, phone, 2); // 2 Tipo: Alumno
+
+    // Asignar rol por defecto: Usuario (roleID = 3)
+    await assignRolesToUserWithConnection(connection, userID, [3]);
 
     const generatedFileName = studentData.profilePhotoName || null;
     const bufferFile = studentData.profilePhotoBuffer || null;
