@@ -51,22 +51,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Rate limit solo para login y registro
-const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 15 minutos
-  max: 25, // solo 5 intentos por IP en ese periodo
-  message: {
-    code: 'TOO_MANY_REQUESTS',
-    message: 'Demasiados intentos de autenticación. Intenta de nuevo en 15 minutos.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Aplica limitador solo a rutas sensibles
-app.use('/api/users/login', authLimiter);
-app.use('/api/users/register', authLimiter); 
-
 // Ruta raíz simple
 app.get('/', (req, res) => {
   res.json({ message: 'API running successfully' });

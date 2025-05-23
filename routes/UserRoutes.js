@@ -17,13 +17,25 @@ const {
 } = require('../controllers/UserController');
 
 // Middleware de limitador de intentos de login
+const trustedEmails = process.env.TRUSTED_ADMIN_EMAILS?.split(',') || [];
+const trustedIPs = process.env.TRUSTED_IPS?.split(',') || [];
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   keyGenerator: (req) => req.body.email || req.ip,
-  message: 'Demasiados intentos fallidos con este correo. Intenta de nuevo en 15 minutos.'
+  skip: (req) => {
+    return trustedIPs.includes(req.ip) || trustedEmails.includes(req.body.email);
+  },
+  message: {
+    code: 'TOO_MANY_REQUESTS',
+    message: 'Demasiados intentos fallidos con este correo. Intenta de nuevo en 15 minutos.'
+  },
+  handler: (req, res, next, options) => {
+    console.warn(`⚠️ Límite alcanzado para: ${req.body.email || req.ip}`);
+    res.status(options.statusCode || 429).json(options.message);
+  }
 });
-
 
 // Ruta para registrar un nuevo usuario (pública)
 router.post('/register', registerUserController);

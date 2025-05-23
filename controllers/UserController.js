@@ -101,13 +101,19 @@ exports.loginUserController = async (req, res) => {
       const [result] = await pool.query('SELECT controlNumber FROM Student WHERE userID = ?', [user.userID]);
       controlNumber = result[0]?.controlNumber || null;
     }
+    
+    // Obtener los roles del usuario
+    const rolesResult = await UserRole.getRolesByUserID(user.userID);
 
+    const roles = rolesResult.map(r => r.roleName);
+    
     // Respuesta
     res.status(200).send({
       message: 'Login exitoso',
       userTypeID: user.userTypeID,
       userID: user.userID,
       controlNumber,
+      roles,
       token
     });
 
