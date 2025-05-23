@@ -31,7 +31,6 @@ router.get(
 // Ruta para obtener todos los asesores internos
 router.get(
   '/',
-  authMiddleware,
   internalAssessorController.getAllInternalAssessors
 );
 
