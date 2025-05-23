@@ -54,8 +54,11 @@ app.use(cookieParser());
 // Rate limit solo para login y registro
 const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 15 minutos
-  max: 10000, // Máximo 100 intentos por IP
-  message: 'Demasiados intentos de autenticación, intenta más tarde.',
+  max: 25, // solo 5 intentos por IP en ese periodo
+  message: {
+    code: 'TOO_MANY_REQUESTS',
+    message: 'Demasiados intentos de autenticación. Intenta de nuevo en 15 minutos.'
+  },
   standardHeaders: true,
   legacyHeaders: false
 });
