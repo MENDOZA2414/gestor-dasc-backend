@@ -65,6 +65,11 @@ exports.loginUserController = async (req, res) => {
       }
     }
 
+    // Si override es true, limpiar el token anterior (aunque sea válido)
+    if (override) {
+      await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [user.userID]);
+    }
+    
     // Generar un nuevo sessionToken
     const sessionToken = jwt.sign(
       { userID: user.userID, time: Date.now() },
