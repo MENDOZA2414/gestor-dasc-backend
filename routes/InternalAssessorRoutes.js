@@ -32,7 +32,6 @@ router.get(
 router.get(
   '/',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
   internalAssessorController.getAllInternalAssessors
 );
 
