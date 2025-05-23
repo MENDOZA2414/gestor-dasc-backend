@@ -1,5 +1,5 @@
 const path = require("path");
-const db = require("../config/db");
+const pool  = require("../config/db");
 const uploadToFTP = require("../utils/FtpUploader");
 const { deleteFileFromFTP } = require("../utils/FtpUtils");
 
@@ -18,7 +18,7 @@ const uploadProfilePhoto = async (req, res) => {
   }
 
   try {
-    const [[user]] = await db.query("SELECT userTypeID FROM User WHERE userID = ?", [userID]);
+    const [[user]] = await pool.query("SELECT userTypeID FROM User WHERE userID = ?", [userID]);
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
     const mapping = userTypeMap[user.userTypeID];
@@ -28,7 +28,7 @@ const uploadProfilePhoto = async (req, res) => {
     const column = mapping.column;
 
     // Obtener foto anterior
-    const [[existing]] = await db.query(
+    const [[existing]] = await pool.query(
       `SELECT ${column} FROM ${table} WHERE userID = ?`,
       [userID]
     );
@@ -51,7 +51,7 @@ const uploadProfilePhoto = async (req, res) => {
     await uploadToFTP(req.bufferFile, remotePath, { overwrite: true });
 
     // Actualizar en la BD
-    await db.query(
+    await pool.query(
       `UPDATE ${table} SET ${column} = ? WHERE userID = ?`,
       [publicUrl, userID]
     );

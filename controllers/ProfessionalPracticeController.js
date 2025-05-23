@@ -2,6 +2,7 @@
 
 const ProfessionalPractice = require('../models/ProfessionalPractice');
 const getUserRoles = require('../utils/GetUserRoles');
+const pool  = require("../config/db");
 
 // Obtener la práctica profesional registrada de un estudiante
 exports.getPracticeByStudentID = async (req, res) => {
@@ -24,7 +25,7 @@ exports.getPracticeByStudentID = async (req, res) => {
 
       // Si es asesor interno, debe estar asignado al estudiante
       if (userTypeID === 1) {
-        const [studentData] = await db.query(
+        const [studentData] = await pool.query(
           `SELECT internalAssessorID FROM Student WHERE studentID = ?`,
           [studentID]
         );
@@ -169,7 +170,7 @@ exports.getStudentPracticeByAssessor = async (req, res) => {
       }
 
       // Validar que el estudiante esté asignado al asesor
-      const [studentData] = await db.query(
+      const [studentData] = await pool.query(
         `SELECT internalAssessorID FROM Student WHERE studentID = ?`,
         [studentID]
       );

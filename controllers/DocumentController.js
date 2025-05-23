@@ -2,7 +2,7 @@ const uploadToFTP = require("../utils/FtpUploader");
 const createFtpStructure = require("../utils/FtpStructureBuilder");
 const multer = require("multer");
 const path = require("path");
-const db = require("../config/db");
+const pool  = require("../config/db");
 const ftpConfig = require("../config/ftpConfig");
 const ftp = require("basic-ftp");
 const StudentDocumentation = require("../models/StudentDocumentation");
@@ -157,7 +157,7 @@ const uploadGeneralDocument = async (req, res) => {
     let studentID = null;
 
     if (userType === "student") {
-      const [[studentRow]] = await db.query(
+      const [[studentRow]] = await pool.query(
         "SELECT studentID, controlNumber FROM Student WHERE userID = ?",
         [userID]
       );

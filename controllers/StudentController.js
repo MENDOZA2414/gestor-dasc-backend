@@ -1,5 +1,7 @@
 const Student = require('../models/Student');
-const { registerStudent } = require('../models/Student');
+const { registerStudent, getStudentsByAssessorLogged } = require('../models/Student');
+const getUserRoles = require('../utils/GetUserRoles');
+const pool  = require('../config/db');
 
 // Controlador para registrar un alumno
 const registerStudentController = async (req, res) => {
@@ -43,6 +45,26 @@ const registerStudentController = async (req, res) => {
 
     // Cualquier otro error inesperado
     res.status(500).json({ message: 'Error al registrar el alumno', error: error.message });
+  }
+};
+
+const getStudentsByLoggedAssessor = async (req, res) => {
+  try {
+    const requesterID = req.user.id;
+    const roles = await getUserRoles(requesterID);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    if (isAdmin) {
+      return res.status(403).json({
+        message: 'Usa el endpoint /students/all si eres administrador.'
+      });
+    }
+
+    const students = await getStudentsByAssessorLogged(requesterID);
+    res.status(200).json(students);
+  } catch (error) {
+    console.error('Error en getStudentsByLoggedAssessor:', error.message);
+    res.status(500).json({ message: 'Error al obtener los alumnos del asesor autenticado.' });
   }
 };
 
@@ -127,20 +149,36 @@ const getStudentsByInternalAssessorID = async (req, res) => {
   }
 };
 
-// Obtener todos los alumnos por ID de asesor interno
+// Obtener todos los alumnos
 const getAllStudents = async (req, res) => {
-    try {
-        const internalAssessorID = req.query.internalAssessorID;
-        if (!internalAssessorID) {
-            return res.status(400).json({ message: "El ID del asesor interno es obligatorio" });
-        }
+  try {
+    const requesterID = req.user.id;
+    const roles = await getUserRoles(requesterID);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-        const students = await Student.getAllStudents(internalAssessorID);
-        res.status(200).json(students);
-    } catch (error) {
-        console.error('Error al obtener todos los alumnos:', error.message);
-        res.status(500).json({ message: 'Error al obtener el alumno' });
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'No tienes permisos para ver todos los alumnos.' });
     }
+
+    const [students] = await pool.query(`
+      SELECT 
+        s.studentID,
+        s.controlNumber AS matricula,
+        CONCAT(s.firstName, ' ', s.firstLastName, ' ', s.secondLastName) AS name,
+        s.career,
+        s.semester,
+        s.shift,
+        CONCAT(ia.firstName, ' ', ia.firstLastName, ' ', ia.secondLastName) AS internalAssessor
+      FROM Student s
+      LEFT JOIN InternalAssessor ia ON s.internalAssessorID = ia.internalAssessorID
+      WHERE s.recordStatus = 'Activo'
+    `);
+
+    res.status(200).json(students);
+  } catch (error) {
+    console.error('Error en getAllStudents:', error.message);
+    res.status(500).json({ message: 'Error al obtener los alumnos.' });
+  }
 };
 
 
@@ -238,6 +276,7 @@ const deleteStudentByControlNumber = async (req, res) => {
 // Exportar todas las funciones
 module.exports = {
     registerStudentController,
+    getStudentsByLoggedAssessor,
     getStudentByControlNumber,
     getStudentsByInternalAssessorID,
     getAllStudents,

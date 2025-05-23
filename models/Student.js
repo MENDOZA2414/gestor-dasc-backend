@@ -100,6 +100,23 @@ const registerStudent = async (studentData) => {
   }
 };
 
+// Obtener alumnos del asesor autenticado (por su ID)
+const getStudentsByAssessorLogged = async (internalAssessorID) => {
+  const query = `
+    SELECT 
+      studentID,
+      controlNumber AS matricula,
+      CONCAT(firstName, ' ', firstLastName, ' ', secondLastName) AS name,
+      career,
+      semester,
+      shift
+    FROM Student
+    WHERE internalAssessorID = ? AND recordStatus = 'Activo'
+    ORDER BY firstName
+  `;
+  const [results] = await pool.query(query, [internalAssessorID]);
+  return results;
+};
 
 // Obtener un alumno por su controlNumber
 const getStudentByControlNumber = async (controlNumber) => {
@@ -228,6 +245,7 @@ const patchStudent = async (controlNumber, fieldsToUpdate) => {
 
 module.exports = {
     registerStudent,
+    getStudentsByAssessorLogged,
     getStudentByControlNumber,
     getStudentsByInternalAssessorID,
     getAllStudents,

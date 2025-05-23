@@ -2,7 +2,7 @@ const StudentApplication = require('../models/StudentApplication');
 const ProfessionalPractice = require('../models/ProfessionalPractice');
 const uploadToFTP = require('../utils/FtpUploader');
 const path = require('path');
-const db = require('../config/db');
+const pool  = require('../config/db');
 const ftp = require("basic-ftp");
 const ftpConfig = require("../config/ftpConfig");
 const getUserRoles = require('../utils/GetUserRoles');
@@ -17,7 +17,7 @@ exports.registerApplication = async (req, res) => {
       return res.status(403).json({ message: 'Solo los estudiantes pueden registrar postulaciones.' });
     }
 
-    const [[studentInfo]] = await db.query(
+    const [[studentInfo]] = await pool.query(
       'SELECT controlNumber FROM Student WHERE userID = ?',
       [studentID]
     );
@@ -29,7 +29,7 @@ exports.registerApplication = async (req, res) => {
     const controlNumber = studentInfo.controlNumber;
 
     // Verificar que la vacante esté activa
-    const [[vacanteData]] = await db.query(`
+    const [[vacanteData]] = await pool.query(`
       SELECT P.companyID, P.status AS positionStatus
       FROM PracticePosition P
       WHERE P.practicePositionID = ?
@@ -55,7 +55,7 @@ exports.registerApplication = async (req, res) => {
     }
 
     // Verificar si la vacante ya está llena (por cupo)
-    const [[{ currentStudents, maxStudents }]] = await db.query(
+    const [[{ currentStudents, maxStudents }]] = await pool.query(
       "SELECT currentStudents, maxStudents FROM PracticePosition WHERE practicePositionID = ?",
       [practicePositionID]
     );
@@ -65,7 +65,7 @@ exports.registerApplication = async (req, res) => {
     }
 
     // Verificar si la empresa asociada está aceptada
-    const [[companyData]] = await db.query(`
+    const [[companyData]] = await pool.query(`
       SELECT C.status
       FROM PracticePosition P
       JOIN Company C ON P.companyID = C.companyID
@@ -78,7 +78,7 @@ exports.registerApplication = async (req, res) => {
 
 
     // Verificar si ya existe una postulación previa (rechazada incluida)
-    const [[existingApplication]] = await db.query(`
+    const [[existingApplication]] = await pool.query(`
       SELECT SA.applicationID, SA.status, SA.coverLetterFileName, P.companyID
       FROM StudentApplication SA
       JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
@@ -118,7 +118,7 @@ exports.registerApplication = async (req, res) => {
       }
 
       // Actualizar postulación y statusHistory
-      const [[{ statusHistory }]] = await db.query(`
+      const [[{ statusHistory }]] = await pool.query(`
         SELECT statusHistory FROM StudentApplication WHERE applicationID = ?
       `, [existingApplication.applicationID]);
 
@@ -388,7 +388,7 @@ exports.patchApplicationController = async (req, res) => {
     }
 
     if (updateData.status && ["Aceptado", "Rechazado"].includes(updateData.status)) {
-      const [[data]] = await db.query(`
+      const [[data]] = await pool.query(`
         SELECT 
           SA.studentID,
           SA.coverLetterFileName,
@@ -410,7 +410,7 @@ exports.patchApplicationController = async (req, res) => {
 
       // Validar cupo antes de aceptar
       if (updateData.status === "Aceptado") {
-        const [[{ currentStudents, maxStudents }]] = await db.query(
+        const [[{ currentStudents, maxStudents }]] = await pool.query(
           "SELECT currentStudents, maxStudents FROM PracticePosition WHERE practicePositionID = ?",
           [data.practicePositionID]
         );
@@ -422,7 +422,7 @@ exports.patchApplicationController = async (req, res) => {
 
       // Renombrar archivo en FTP
       // Capturar estado original antes del update
-      const [[{ status: originalStatus }]] = await db.query(`
+      const [[{ status: originalStatus }]] = await pool.query(`
         SELECT status FROM StudentApplication WHERE applicationID = ?
       `, [applicationID]);
       
@@ -452,7 +452,7 @@ exports.patchApplicationController = async (req, res) => {
       updateData.coverLetterFilePath = `https://uabcs.online/practicas${newPath}`;
 
       // Actualizar el historial
-      const [[{ statusHistory }]] = await db.query(`
+      const [[{ statusHistory }]] = await pool.query(`
         SELECT statusHistory FROM StudentApplication WHERE applicationID = ?
       `, [applicationID]);
 
@@ -464,14 +464,14 @@ exports.patchApplicationController = async (req, res) => {
 
       // Crear práctica profesional solo si fue aceptado y no existe ya una
       if (updateData.status === "Aceptado") {
-        const [[existingPractice]] = await db.query(`
+        const [[existingPractice]] = await pool.query(`
           SELECT practiceID FROM ProfessionalPractice
           WHERE studentID = ? AND recordStatus = 'Activo'
         `, [data.studentID]);
 
         if (!existingPractice) {
           // Obtener fechas de la vacante
-          const [[position]] = await db.query(`
+          const [[position]] = await pool.query(`
             SELECT startDate, endDate, positionName, externalAssessorID
             FROM PracticePosition
             WHERE practicePositionID = ?
@@ -491,7 +491,7 @@ exports.patchApplicationController = async (req, res) => {
           });
 
           // Aumentar currentStudents en la vacante
-          await db.query(
+          await pool.query(
             "UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?",
             [data.practicePositionID]
           );

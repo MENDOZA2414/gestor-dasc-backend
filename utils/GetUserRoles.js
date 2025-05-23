@@ -1,7 +1,7 @@
-const db = require('../config/db');
+const pool  = require('../config/db');
 
 const getUserRoles = async (userID) => {
-  const [rows] = await db.query(`
+  const [rows] = await pool.query(`
     SELECT r.roleName
     FROM UserRole ur
     JOIN Role r ON ur.roleID = r.roleID

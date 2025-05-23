@@ -1,5 +1,6 @@
 const PracticePosition = require('../models/PracticePosition');
 const getUserRoles = require('../utils/GetUserRoles');
+const pool  = require("../config/db");
 
 // Obtener vacante por ID
 exports.getPositionByID = async (req, res) => {
@@ -182,7 +183,7 @@ exports.deletePosition = async (req, res) => {
     }
 
     // Verificar si la vacante está asociada a alguna práctica activa
-    const [activePractices] = await db.query(`
+    const [activePractices] = await pool.query(`
       SELECT practiceID 
       FROM ProfessionalPractice 
       WHERE practicePositionID = ? AND recordStatus = 'Activo'
@@ -211,7 +212,7 @@ exports.deletePositionAndApplications = async (req, res) => {
     const positionID = parseInt(req.params.id);
 
     // Verificar si hay prácticas profesionales activas vinculadas
-    const [linkedPractices] = await db.query(`
+    const [linkedPractices] = await pool.query(`
       SELECT practiceID 
       FROM ProfessionalPractice 
       WHERE practicePositionID = ? AND recordStatus = 'Activo'
