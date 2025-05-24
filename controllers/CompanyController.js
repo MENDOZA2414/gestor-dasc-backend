@@ -16,21 +16,20 @@ const getCompanyByID = async (req, res) => {
       return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
     }
 
-    // Obtener roles del usuario autenticado
-   const roles = await getUserRoles(requesterID);
+    const roles = await getUserRoles(requesterID);
 
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
-    const isOwner = userTypeID === 4 && requesterID === companyID;
+    const isOwner = userTypeID === 4 && requesterID === company.userID;
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ message: 'No tienes permiso para ver esta entidad receptora.' });
     }
 
-    res.status(200).json(company);
+    return res.status(200).json(company);
 
   } catch (error) {
     console.error('Error al obtener la entidad receptora:', error.message);
-    res.status(500).json({ message: 'No se pudo obtener la entidad receptora.', error: error.message });
+    return res.status(500).json({ message: 'No se pudo obtener la entidad receptora.', error: error.message });
   }
 };
 
@@ -86,15 +85,25 @@ const registerCompany = async (req, res) => {
       fiscalName,
       rfc,
       address,
-      state,
+      externalNumber,
+      interiorNumber,
+      suburb,
       city,
-      zipCode
+      state,
+      zipCode,
+      companyPhone,
+      category,
+      areaID,
+      website,
+      needs,
+      modality,
+      economicSupport
     } = req.body;
 
-    // Validación básica de campos obligatorios
+    // Validación básica de campos obligatorios mínimos
     if (
       !email || !password || !phone || !companyName || !fiscalName ||
-      !rfc || !address || !state || !city || !zipCode
+      !rfc || !address || !externalNumber || !state || !city || !zipCode
     ) {
       return res.status(400).json({ message: 'Faltan datos obligatorios para registrar la entidad.' });
     }
@@ -103,33 +112,44 @@ const registerCompany = async (req, res) => {
       email,
       password,
       phone,
-      companyName,
-      fiscalName,
       rfc,
+      fiscalName,
+      companyName,
       address,
-      state,
+      externalNumber,
+      interiorNumber: interiorNumber || null,
+      suburb: suburb || null,
       city,
+      state,
       zipCode,
-      status: 'Pendiente',
+      companyPhone: companyPhone || null,
+      category,
+      areaID,
+      website: website || null,
+      needs: needs || null,
+      modality: modality || null,
+      economicSupport: economicSupport || null,
+      status: 'Pendiente', // estado inicial hasta aprobación
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null
     };
 
     const result = await Company.registerCompany(companyData);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Entidad registrada correctamente. Será activada por un administrador.',
       data: result
     });
 
   } catch (error) {
     console.error('Error al registrar entidad:', error.message);
-    res.status(500).json({
+    return res.status(500).json({
       message: 'No se pudo registrar la entidad.',
       error: error.message
     });
   }
 };
+
 
 // Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {
@@ -174,13 +194,12 @@ const patchCompanyController = async (req, res) => {
       return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
     }
 
-    // Obtener roles del usuario autenticado
+    // Obtener roles
     const roles = await getUserRoles(requesterID);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+    const isOwner = userTypeID === 4 && requesterID === company.userID;
 
-    const isSuperAdmin = roles.includes('SuperAdmin');
-    const isOwner = userTypeID === 4 && requesterID === companyID;
-
-    if (!isSuperAdmin && !isOwner) {
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ message: 'No tienes permiso para modificar esta entidad.' });
     }
 
@@ -203,7 +222,6 @@ const countCompaniesController = async (req, res) => {
     res.status(500).json({ message: 'Error al contar entidades receptoras.', error: error.message });
   }
 };
-
 
 module.exports = {
     getCompanyByID,

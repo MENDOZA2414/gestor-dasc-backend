@@ -1,5 +1,6 @@
 const InternalAssessor = require('../models/InternalAssessor');
 const getUserRoles = require('../utils/GetUserRoles');
+const pool = require('../config/db');
 
 // Registrar un asesor interno
 const registerInternalAssessorController = async (req, res) => {
@@ -60,10 +61,21 @@ const getInternalAssessorByID = async (req, res) => {
 
     // Si no es admin, validar que sea el propio asesor
     if (!isAdmin) {
-      if (userTypeID !== 1 || requesterID !== internalAssessorID) {
+      if (userTypeID !== 1) {
+        return res.status(403).json({ message: 'Solo los asesores internos pueden acceder a esta información.' });
+      }
+
+      // Buscar su propio registro de InternalAssessor
+      const [[ownRecord]] = await pool.query(
+        'SELECT internalAssessorID FROM InternalAssessor WHERE userID = ? AND recordStatus = "Activo"',
+        [requesterID]
+      );
+
+      if (!ownRecord || ownRecord.internalAssessorID !== internalAssessorID) {
         return res.status(403).json({ message: 'No tienes permiso para consultar este perfil.' });
       }
     }
+
 
     const assessor = await InternalAssessor.getInternalAssessorByID(internalAssessorID);
     if (!assessor) {

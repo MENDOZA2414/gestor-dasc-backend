@@ -1,10 +1,10 @@
-
 const validateCompanyData = (data) => {
   const {
     rfc, fiscalName, companyName, address, externalNumber, city, state,
     zipCode, companyPhone, category, areaID
   } = data;
 
+  // Validar campos obligatorios como strings defensivos
   const requiredFields = {
     rfc,
     fiscalName,
@@ -15,14 +15,19 @@ const validateCompanyData = (data) => {
     state,
     zipCode,
     companyPhone,
-    category,
-    areaID
+    category
   };
 
   for (const [key, value] of Object.entries(requiredFields)) {
-    if (!value || value.toString().trim() === "") {
+    const val = String(value || '').trim();
+    if (!val) {
       throw new Error(`Campo requerido: ${key}`);
     }
+  }
+
+  // Validar que areaID sea un número válido
+  if (areaID === undefined || areaID === null || isNaN(areaID)) {
+    throw new Error('El área debe ser un número válido');
   }
 
   // Validar RFC (simplificado)
@@ -38,11 +43,6 @@ const validateCompanyData = (data) => {
   // Validar código postal
   if (!/^\d{5}$/.test(zipCode)) {
     throw new Error('El código postal debe tener 5 dígitos');
-  }
-
-  // Validar que areaID sea un número válido
-  if (isNaN(areaID)) {
-    throw new Error('El área debe ser un número válido');
   }
 
   // Validar categoría aceptada
