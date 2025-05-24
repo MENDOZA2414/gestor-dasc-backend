@@ -2,21 +2,39 @@
 
 const ExternalAssessor = require('../models/ExternalAssessor');
 const getUserRoles = require('../utils/GetUserRoles');
+const pool = require('../config/db');
 
 // Registrar un asesor externo
 const registerExternalAssessorController = async (req, res) => {
   try {
-    const companyID = req.user.id; // empresa autenticada
+    // Obtener companyID real desde userID autenticado
+    const [[company]] = await pool.query(
+      'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+      [req.user.id]
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'Empresa no encontrada para este usuario.' });
+    }
+
+    const companyID = company.companyID;
+
     const {
       email,
       password,
       phone,
       firstName,
-      lastName
+      firstLastName,
+      secondLastName,
+      professionID,
+      position
     } = req.body;
 
-    // Validar campos requeridos
-    if (!email || !password || !phone || !firstName || !lastName) {
+    // Validación de campos obligatorios
+    if (
+      !email || !password || !phone || !firstName ||
+      !firstLastName || !secondLastName || !professionID || !position
+    ) {
       return res.status(400).json({ message: 'Faltan datos obligatorios para registrar al asesor externo.' });
     }
 
@@ -25,9 +43,12 @@ const registerExternalAssessorController = async (req, res) => {
       password,
       phone,
       firstName,
-      lastName,
+      firstLastName,
+      secondLastName,
+      professionID: parseInt(professionID),
+      position,
       companyID,
-      status: 'Pendiente', // ← importante
+      status: 'Pendiente',
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null
     };

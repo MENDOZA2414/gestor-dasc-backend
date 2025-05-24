@@ -9,74 +9,83 @@ const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
 // Registrar un asesor externo
 const registerExternalAssessor = async (assessorData) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
 
-        const {
-            email, password, phone,
-            firstName, firstLastName, secondLastName,
-            companyID, professionID, position,
-            profilePhotoName, profilePhotoBuffer
-        } = assessorData;
+    const {
+      email, password, phone,
+      firstName, firstLastName, secondLastName,
+      companyID, professionID, position,
+      profilePhotoName, profilePhotoBuffer
+    } = assessorData;
 
-        if (!email || !password || !firstName || !firstLastName || !companyID) {
-            throw new Error('Datos obligatorios faltantes para registrar el asesor externo');
-        }
-
-        const userID = await registerUser(connection, email, password, phone, 3); // 3 Tipo: Asesor Externo
-
-        // Asignar rol por defecto: Usuario (roleID = 3)
-        await assignRolesToUserWithConnection(connection, userID, [3]);
-
-        // Insertar con photo temporal
-        const insertQuery = `
-            INSERT INTO ExternalAssessor (
-                userID, companyID, firstName, firstLastName, secondLastName,
-                professionID, position, phone, photo, ExternalAssessorStatus
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        await connection.query(insertQuery, [
-            userID, companyID, firstName, firstLastName, secondLastName,
-            professionID, position, phone, null, 'Activo'
-        ]);
-
-        const [[{ externalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS externalAssessorID");
-
-        await connection.commit();
-
-        // Crear estructura FTP
-        await createFtpStructure("externalAssessor", externalAssessorID);
-
-        // Subir foto de perfil si existe
-        if (profilePhotoBuffer && profilePhotoName) {
-            const safeFileName = profilePhotoName
-                .replace(/\s+/g, "_")
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^\w.-]/g, "");
-
-            const ftpPath = `/images/profiles/${safeFileName}`;
-            const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
-
-            try {
-                await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
-                await pool.query("UPDATE ExternalAssessor SET photo = ? WHERE externalAssessorID = ?", [
-                    photoUrl,
-                    externalAssessorID
-                ]);
-            } catch (err) {
-                console.warn("Asesor externo registrado, pero falló la subida de la foto:", err.message);
-            }
-        }
-
-        return { message: 'Asesor externo registrado exitosamente' };
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
+    if (!email || !password || !firstName || !firstLastName || !companyID) {
+      throw new Error('Datos obligatorios faltantes para registrar el asesor externo');
     }
+
+    // Verificar que la empresa exista
+    const [[existingCompany]] = await connection.query(
+      'SELECT companyID FROM Company WHERE companyID = ? AND recordStatus = "Activo"',
+      [companyID]
+    );
+    if (!existingCompany) {
+      throw new Error('La empresa especificada no existe o fue eliminada.');
+    }
+
+    const userID = await registerUser(connection, email, password, phone, 3); // Tipo 3: Asesor Externo
+
+    // Asignar rol por defecto: Usuario (roleID = 3)
+    await assignRolesToUserWithConnection(connection, userID, [3]);
+
+    // Insertar asesor externo con foto = null inicialmente
+    const insertQuery = `
+      INSERT INTO ExternalAssessor (
+        userID, companyID, firstName, firstLastName, secondLastName,
+        professionID, position, phone, photo, ExternalAssessorStatus
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    await connection.query(insertQuery, [
+      userID, companyID, firstName, firstLastName, secondLastName,
+      professionID, position, phone, null, 'Activo'
+    ]);
+
+    const [[{ externalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS externalAssessorID");
+
+    await connection.commit();
+
+    // Crear estructura FTP
+    await createFtpStructure("externalAssessor", externalAssessorID);
+
+    // Subir foto si existe
+    if (profilePhotoBuffer && profilePhotoName) {
+      const safeFileName = profilePhotoName
+        .replace(/\s+/g, "_")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w.-]/g, "");
+
+      const ftpPath = `/images/profiles/${safeFileName}`;
+      const photoUrl = `https://uabcs.online/practicas${ftpPath}`;
+
+      try {
+        await uploadToFTP(profilePhotoBuffer, ftpPath, { overwrite: true });
+        await pool.query("UPDATE ExternalAssessor SET photo = ? WHERE externalAssessorID = ?", [
+          photoUrl,
+          externalAssessorID
+        ]);
+      } catch (err) {
+        console.warn("Asesor externo registrado, pero falló la subida de la foto:", err.message);
+      }
+    }
+
+    return { message: 'Asesor externo registrado exitosamente' };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
 // Obtener un asesor externo por ID
