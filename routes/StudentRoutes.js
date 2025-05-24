@@ -52,7 +52,6 @@ router.get(
   '/',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
   studentController.getStudentsByStatusAndAssessorID
 );
 
@@ -68,7 +67,6 @@ router.get(
 router.get(
   '/:controlNumber',
   authMiddleware,
-  checkUserType(['student', 'internalAssessor']),
   studentController.getStudentByControlNumber
 );
 
