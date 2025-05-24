@@ -10,7 +10,6 @@ router.get(
   '/entidad/:entidadID',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['company']),
   practicePositionController.getPositionsByCompanyID
 );
 
@@ -18,8 +17,6 @@ router.get(
 router.get(
   '/all/:page/:limit',
   authMiddleware,
-  checkUserType(['student', 'internalAssessor']),
-  checkRole(['Admin', 'SuperAdmin']),
   practicePositionController.getAllPositions
 );
 
@@ -27,8 +24,6 @@ router.get(
 router.get(
   '/',
   authMiddleware,
-  checkUserType(['student', 'internalAssessor']),
-  checkRole(['Admin', 'SuperAdmin']),
   practicePositionController.getPositionsByStatus
 );
 
@@ -51,8 +46,6 @@ router.post(
 router.patch(
   '/:id',
   authMiddleware,
-  checkUserType(['company']),
-  checkRole(['Admin', 'SuperAdmin']),
   practicePositionController.patchPositionController
 );
 

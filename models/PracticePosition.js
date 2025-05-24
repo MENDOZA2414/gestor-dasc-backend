@@ -2,17 +2,28 @@ const pool = require('../config/db');
 
 // Creación de vacante
 const createPosition = async (positionData) => {
-    const { positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID } = positionData;
+  const {
+    positionName, startDate, endDate, city,
+    positionType, description, companyID, externalAssessorID,
+    maxStudents, status = 'Pendiente'
+  } = positionData;
 
-    const insertQuery = `
-        INSERT INTO PracticePosition (positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await pool.query(insertQuery, [positionName, startDate, endDate, city, positionType, description, companyID, externalAssessorID]);
+  const insertQuery = `
+    INSERT INTO PracticePosition (
+      positionName, startDate, endDate, city, positionType,
+      description, companyID, externalAssessorID,
+      status, maxStudents, currentStudents, recordStatus
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 
-    const selectQuery = `SELECT * FROM PracticePosition WHERE practicePositionID = ?`;
-    const [result2] = await pool.query(selectQuery, [result.insertId]);
-    return result2[0];
+  const [result] = await pool.query(insertQuery, [
+    positionName, startDate, endDate, city, positionType,
+    description, companyID, externalAssessorID,
+    status, maxStudents, 0, 'Activo'
+  ]);
+
+  const [rows] = await pool.query(`SELECT * FROM PracticePosition WHERE practicePositionID = ?`, [result.insertId]);
+  return rows[0];
 };
 
 // Obtener vacante por ID

@@ -125,49 +125,53 @@ exports.getPositionsByStatus = async (req, res) => {
 // Crear vacante
 exports.createPosition = async (req, res) => {
   try {
-    const companyID = req.user.id; 
+    const companyUserID = req.user.id;
+
+    // Obtener el companyID real por userID
+    const [[company]] = await pool.query(
+      'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+      [companyUserID]
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'Empresa no encontrada para este usuario.' });
+    }
+
     const {
-      positionName,
-      description,
-      requiredSkills,
-      startDate,
-      endDate,
-      maxStudents,
-      externalAssessorID
+      positionName, description, startDate,
+      endDate, maxStudents, externalAssessorID,
+      city, positionType
     } = req.body;
 
-    // Validar campos requeridos
+    // Validación básica
     if (
-      !positionName ||
-      !description ||
-      !startDate ||
-      !endDate ||
-      !maxStudents
+      !positionName || !description || !startDate ||
+      !endDate || !maxStudents || !city || !positionType
     ) {
       return res.status(400).json({ message: 'Faltan campos obligatorios para crear la vacante.' });
     }
 
     const newPosition = await PracticePosition.createPosition({
-      companyID,
       positionName,
-      description,
-      requiredSkills,
       startDate,
       endDate,
-      maxStudents,
+      city,
+      positionType,
+      description,
+      companyID: company.companyID,
       externalAssessorID,
-      status: 'Pendiente' // por defecto
+      maxStudents,
+      status: 'Pendiente'
     });
 
     res.status(201).json({
-      status: 201,
       message: 'Vacante creada con éxito',
       data: newPosition
     });
 
   } catch (error) {
     console.error('Error al crear la vacante:', error.message);
-    res.status(400).send({ message: error.message });
+    res.status(400).json({ message: error.message });
   }
 };
 
@@ -234,7 +238,7 @@ exports.deletePositionAndApplications = async (req, res) => {
   }
 };
 
-//Actualizar parcialmente una vacante
+// Actualizar parcialmente una vacante
 exports.patchPositionController = async (req, res) => {
   try {
     const { id } = req.params;
@@ -243,23 +247,32 @@ exports.patchPositionController = async (req, res) => {
     const userTypeID = req.user.userTypeID;
 
     if (!updateData || Object.keys(updateData).length === 0) {
-      return res.status(400).json({ message: 'No se proporcionaron campos para actualizar' });
+      return res.status(400).json({ message: 'No se proporcionaron campos para actualizar.' });
     }
 
     // Obtener la vacante actual
     const position = await PracticePosition.getPositionByID(id);
-    if (!position) {
-      return res.status(404).json({ message: 'La vacante no existe.' });
+    if (!position || position.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'La vacante no existe o ha sido eliminada.' });
     }
 
-    // Obtener roles
+    // Verificar si es Admin o SuperAdmin
     const roles = await getUserRoles(requesterID);
-
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-    // Si no es admin, validar que la empresa solo modifique su propia vacante y que no esté aceptada
+    // Si no es Admin, validar si es la empresa propietaria
     if (!isAdmin) {
-      if (userTypeID !== 4 || requesterID !== position.companyID) {
+      if (userTypeID !== 4) {
+        return res.status(403).json({ message: 'No tienes permiso para modificar esta vacante.' });
+      }
+
+      // Obtener el companyID al que pertenece este userID
+      const [[company]] = await pool.query(
+        'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+        [requesterID]
+      );
+
+      if (!company || company.companyID !== position.companyID) {
         return res.status(403).json({ message: 'No tienes permiso para modificar esta vacante.' });
       }
 
@@ -268,11 +281,15 @@ exports.patchPositionController = async (req, res) => {
       }
     }
 
+    // Ejecutar actualización
     const result = await PracticePosition.patchPosition(id, updateData);
-    res.status(200).json(result);
+    return res.status(200).json({ message: 'Vacante actualizada correctamente.', data: result });
 
   } catch (error) {
     console.error('Error al actualizar vacante:', error.message);
-    res.status(500).json({ message: 'No se pudo actualizar la vacante', error: error.message });
+    return res.status(500).json({
+      message: 'No se pudo actualizar la vacante.',
+      error: error.message
+    });
   }
 };
