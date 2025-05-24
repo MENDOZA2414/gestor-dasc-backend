@@ -9,36 +9,40 @@ const registerInternalAssessorController = async (req, res) => {
       password,
       phone,
       firstName,
-      lastName,
-      career
+      firstLastName,
+      secondLastName
     } = req.body;
 
     // Validar campos obligatorios
-    if (!email || !password || !phone || !firstName || !lastName || !career) {
+    if (!email || !password || !phone || !firstName || !firstLastName) {
       return res.status(400).json({ message: 'Faltan datos requeridos para registrar al asesor interno.' });
     }
 
+    // Preparar objeto de registro
     const assessorData = {
       email,
       password,
       phone,
       firstName,
-      lastName,
-      career,
-      status: 'Pendiente',
+      firstLastName,
+      secondLastName: secondLastName || null,
+      internalAssessorStatus: 'Pendiente', // estado inicial hasta que el admin lo apruebe
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null
     };
 
+    // Registrar en la base de datos
     const result = await InternalAssessor.registerInternalAssessor(assessorData);
-    res.status(201).json({
+
+    // Respuesta exitosa
+    return res.status(201).json({
       message: 'Registro exitoso. El acceso será habilitado cuando un administrador apruebe tu solicitud.',
       data: result
     });
 
   } catch (error) {
     console.error('Error al registrar el asesor interno:', error.message);
-    res.status(500).send({ message: 'Error al registrar el asesor interno', error: error.message });
+    return res.status(500).json({ message: 'Error al registrar el asesor interno', error: error.message });
   }
 };
 

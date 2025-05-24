@@ -27,9 +27,9 @@ const validateInternalAssessorData = (data) => {
   }
 
   // Validar estatus permitido
-  const validStatuses = ['Activo', 'Inactivo'];
+  const validStatuses = ['Activo', 'Inactivo', 'Pendiente'];
   if (!validStatuses.includes(internalAssessorStatus)) {
-    throw new Error('Estatus no válido (Activo o Inactivo)');
+    throw new Error('Estatus no válido (Activo, Inactivo o Pendiente)');
   }
 };
 

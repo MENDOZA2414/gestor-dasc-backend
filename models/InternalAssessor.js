@@ -5,7 +5,6 @@ const uploadToFTP = require('../utils/FtpUploader');
 const validateInternalAssessorData = require('../utils/ValidateInternalAssessorData');
 const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
-
 // Registrar un asesor interno
 const registerInternalAssessor = async (assessorData) => {
     const connection = await pool.getConnection();
