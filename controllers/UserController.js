@@ -6,7 +6,6 @@ const {
   authenticateUser,
   patchUser,
   deleteUser,
-  changeUserPassword
 } = require('../models/User');
 
 const UserRole = require('../models/UserRole');
@@ -152,9 +151,26 @@ exports.loginUserController = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en login:', error.message);
-    res.status(401).send({ message: 'Correo o contraseña incorrectos', error: error.message });
+  let clientMessage = 'Correo o contraseña incorrectos';
+  let devMessage = error.message;
+
+  try {
+    const parsed = JSON.parse(error.message);
+    clientMessage = parsed.client || clientMessage;
+    devMessage = parsed.dev || devMessage;
+  } catch (_) {
+    // Si no se puede parsear, se deja el mensaje por defecto
   }
+
+  console.error('Error en login:', devMessage);
+
+  res.status(401).send({
+    message: clientMessage,
+    // Solo si estás en desarrollo puedes mandar el error interno
+    // error: process.env.NODE_ENV === 'development' ? devMessage : undefined
+  });
+}
+
 };
 
 // Cerrar sesión
@@ -260,7 +276,7 @@ exports.getUserProfileAndRoles = async (req, res) => {
   }
 };
 
-// Actualizar usuario parcialmente (email o teléfono)
+// Actualizar usuario parcialmente (email, teléfono, recordStatus)
 exports.patchUserController = async (req, res) => {
   try {
     const { userID } = req.params;
@@ -303,9 +319,9 @@ exports.patchUserController = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para editar a otros usuarios.' });
     }
 
-    // 5. Evitar cambios innecesarios
+    // 5. Obtener los datos actuales del usuario
     const [currentUserData] = await pool.query(
-      'SELECT email, phone FROM User WHERE userID = ? AND recordStatus = "Activo"',
+      'SELECT email, phone, recordStatus FROM User WHERE userID = ?',
       [userID]
     );
 
@@ -314,9 +330,12 @@ exports.patchUserController = async (req, res) => {
     }
 
     const current = currentUserData[0];
+
+    // 6. Comparar si los valores ingresados son iguales a los actuales
     const isSame =
       (!updateData.email || updateData.email === current.email) &&
-      (!updateData.phone || updateData.phone === current.phone);
+      (!updateData.phone || updateData.phone === current.phone) &&
+      (!updateData.recordStatus || updateData.recordStatus === current.recordStatus);
 
     if (isSame) {
       return res.status(200).json({
@@ -324,7 +343,7 @@ exports.patchUserController = async (req, res) => {
       });
     }
 
-    // 6. Ejecutar actualización
+    // 7. Ejecutar actualización
     const result = await patchUser(userID, updateData);
     return res.status(200).json(result);
 
@@ -332,6 +351,110 @@ exports.patchUserController = async (req, res) => {
     console.error('Error en patchUserController:', error.message);
     return res.status(400).json({
       message: 'Error al actualizar usuario',
+      error: error.message
+    });
+  }
+};
+
+// Cambiar estado de usuario (solo SuperAdmin)
+exports.patchUserStatusController = async (req, res) => {
+  try {
+    const { userID } = req.params;
+    const { recordStatus } = req.body;
+    const loggedUserRoles = req.user.roles || [];
+
+    if (!loggedUserRoles.includes('SuperAdmin')) {
+      return res.status(403).json({ message: 'Solo el SuperAdmin puede cambiar el estado de un usuario.' });
+    }
+
+    const validStatuses = ['Activo', 'Eliminado'];
+    if (!validStatuses.includes(recordStatus)) {
+      return res.status(400).json({ message: 'Estado no válido. Debe ser "Activo" o "Eliminado".' });
+    }
+
+    // 1. Obtener el userTypeID para saber la tabla secundaria
+    const [userRow] = await pool.query('SELECT userTypeID FROM User WHERE userID = ?', [userID]);
+    if (userRow.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado.' });
+    }
+
+    const userTypeID = userRow[0].userTypeID;
+
+    // 2. Actualizar estado en la tabla User
+    const [updateUser] = await pool.query(
+      'UPDATE User SET recordStatus = ? WHERE userID = ?',
+      [recordStatus, userID]
+    );
+
+    if (updateUser.affectedRows === 0) {
+      return res.status(404).json({ message: 'No se pudo actualizar el estado del usuario.' });
+    }
+
+    let secondaryTable = '';
+    let statusField = '';
+    let secondaryStatus = null;
+
+    // 3. Si se activó, también actualizar la tabla secundaria
+    if (recordStatus === 'Activo') {
+      switch (userTypeID) {
+        case 1:
+          secondaryTable = 'InternalAssessor';
+          statusField = 'internalAssessorStatus';
+          break;
+        case 2:
+          secondaryTable = 'Student';
+          statusField = 'studentStatus';
+          break;
+        case 3:
+          secondaryTable = 'ExternalAssessor';
+          statusField = 'externalAssessorStatus';
+          break;
+        case 4:
+          secondaryTable = 'Company';
+          statusField = 'companyStatus';
+          break;
+        default:
+          break;
+      }
+
+      if (secondaryTable && statusField) {
+        const [updateSecondary] = await pool.query(
+          `UPDATE ${secondaryTable} SET recordStatus = 'Activo', ${statusField} = 'Pendiente' WHERE userID = ?`,
+          [userID]
+        );
+
+        if (updateSecondary.affectedRows > 0) {
+          secondaryStatus = 'Pendiente';
+        }
+      }
+    } else if (recordStatus === 'Eliminado') {
+      // Eliminar también en tabla secundaria
+      switch (userTypeID) {
+        case 1: secondaryTable = 'InternalAssessor'; break;
+        case 2: secondaryTable = 'Student'; break;
+        case 3: secondaryTable = 'ExternalAssessor'; break;
+        case 4: secondaryTable = 'Company'; break;
+        default: break;
+      }
+
+      if (secondaryTable) {
+        await pool.query(
+          `UPDATE ${secondaryTable} SET recordStatus = 'Eliminado' WHERE userID = ?`,
+          [userID]
+        );
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Usuario actualizado correctamente',
+      recordStatus,
+      secondaryStatus
+    });
+
+  } catch (error) {
+    console.error('Error en patchUserStatusController:', error.message);
+    res.status(500).json({
+      message: 'Error al cambiar estado del usuario',
       error: error.message
     });
   }
@@ -477,29 +600,55 @@ exports.resetPasswordController = async (req, res) => {
 // Eliminar lógicamente un usuario
 exports.deleteUserController = async (req, res) => {
   const { userID } = req.params;
-
-  const loggedUserID = req.user.id;
-  const loggedUserRoles = req.user.roles || [];
-
-  const isSuperAdmin = loggedUserRoles.includes('SuperAdmin');
-  const isAdmin = loggedUserRoles.includes('Admin');
+  const connection = await pool.getConnection();
 
   try {
-    // Si es Admin pero no SuperAdmin y quiere eliminar a otro admin → bloquear
-    if (
-      isAdmin &&
-      !isSuperAdmin &&
-      parseInt(userID) !== parseInt(loggedUserID) &&
-      await isTargetAdminUser(userID)
-    ) {
-      return res.status(403).json({ message: 'No puedes eliminar a otro administrador.' });
+    await connection.beginTransaction();
+
+    // Obtener el tipo de usuario
+    const [[userRow]] = await connection.query(
+      'SELECT userTypeID FROM User WHERE userID = ?',
+      [userID]
+    );
+
+    if (!userRow) {
+      connection.release();
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    const result = await deleteUser(userID);
-    res.status(200).send(result);
+    const userTypeID = userRow.userTypeID;
+
+    // Marcar al usuario como eliminado en la tabla User
+    await connection.query(
+      'UPDATE User SET recordStatus = "Eliminado" WHERE userID = ?',
+      [userID]
+    );
+
+    // Marcar en su tabla secundaria
+    switch (userTypeID) {
+      case 1:
+        await connection.query('UPDATE InternalAssessor SET recordStatus = "Eliminado" WHERE userID = ?', [userID]);
+        break;
+      case 2:
+        await connection.query('UPDATE Student SET recordStatus = "Eliminado" WHERE userID = ?', [userID]);
+        break;
+      case 3:
+        await connection.query('UPDATE ExternalAssessor SET recordStatus = "Eliminado" WHERE userID = ?', [userID]);
+        break;
+      case 4:
+        await connection.query('UPDATE Company SET recordStatus = "Eliminado" WHERE userID = ?', [userID]);
+        break;
+    }
+
+    await connection.commit();
+    res.status(200).json({ message: 'Usuario eliminado correctamente' });
+
   } catch (error) {
+    await connection.rollback();
     console.error('Error en deleteUserController:', error.message);
-    res.status(500).send({ message: 'Error al eliminar el usuario', error: error.message });
+    res.status(500).json({ message: 'Error al eliminar el usuario', error: error.message });
+  } finally {
+    connection.release();
   }
 };
 

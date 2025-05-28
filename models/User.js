@@ -48,26 +48,38 @@ const registerUser = async (connection, email, password, phone, userTypeID) => {
 
 // Iniciar sesión de usuario
 const authenticateUser = async (email, password) => {
-    const query = `SELECT * FROM User WHERE email = ?`;
-    const [result] = await pool.query(query, [email]);
+  const query = `SELECT * FROM User WHERE email = ?`;
+  const [result] = await pool.query(query, [email]);
 
-    if (result.length === 0) {
-        throw new Error('El correo electrónico no está registrado');
-    }
+  if (result.length === 0) {
+    const devError = 'Correo no registrado.';
+    throw new Error(JSON.stringify({ client: 'Correo o contraseña incorrectos', dev: devError }));
+  }
 
-    const user = result[0];
+  const user = result[0];
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-        throw new Error('Contraseña incorrecta');
-    }
+  if (user.recordStatus === 'Eliminado') {
+    const devError = 'Usuario eliminado.';
+    throw new Error(JSON.stringify({ client: 'Correo o contraseña incorrectos', dev: devError }));
+  }
 
-    return {
-        userID: user.userID,
-        email: user.email,
-        phone: user.phone,
-        userTypeID: user.userTypeID
-    };
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    const devError = 'Contraseña incorrecta.';
+    throw new Error(JSON.stringify({ client: 'Correo o contraseña incorrectos', dev: devError }));
+  }
+
+  if (user.recordStatus !== 'Activo') {
+    const devError = `Cuenta con estado ${user.recordStatus}.`;
+    throw new Error(JSON.stringify({ client: `Tu cuenta está actualmente en estado ${user.recordStatus}.`, dev: devError }));
+  }
+
+  return {
+    userID: user.userID,
+    email: user.email,
+    phone: user.phone,
+    userTypeID: user.userTypeID
+  };
 };
 
 // Obtener usuarios activos (para listar)
