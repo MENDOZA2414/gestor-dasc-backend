@@ -5,6 +5,8 @@ const uploadProfile = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const { getUserProfileAndRoles } = require('../controllers/UserController');
 const checkRole = require('../middlewares/CheckRole');
+const checkOwnershipOrAdmin = require('../middlewares/CheckOwnershipOrAdmin');
+const { getUserOwnerID } = require('../utils/ownershipResolvers');
 
 const {
     registerUserController,
@@ -12,6 +14,9 @@ const {
     logoutUserController,
     getUserByIDController,
     patchUserController,
+    changePasswordController,
+    requestPasswordResetController,
+    resetPasswordController,
     deleteUserController
 } = require('../controllers/UserController');
 
@@ -29,7 +34,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
 }, loginUserController);
 
 // Ruta para cerrar sesión 
-router.get('/logout', authMiddleware, logoutUserController);
+router.post('/logout', authMiddleware, logoutUserController);
 
 // Ruta para obtener el perfil del usuario autenticado (protegida)
 router.get('/me', authMiddleware, getUserProfileAndRoles);
@@ -37,16 +42,24 @@ router.get('/me', authMiddleware, getUserProfileAndRoles);
 // Subir o actualizar foto de perfil (protegida)
 router.post('/upload-profile-photo', authMiddleware, uploadProfile, uploadProfilePhoto);
 
-// Ejemplo de ruta protegida (necesita token)
-router.get('/protected', authMiddleware, (req, res) => {
-    res.send({ message: 'Acceso autorizado, usuario autenticado', user: req.user });
-});
+// Cambiar contraseña del usuario autenticado (protegida)
+router.patch('/change-password', authMiddleware, changePasswordController);
+
+// Solicitar restablecimiento de contraseña (pública)
+router.post('/request-password-reset', requestPasswordResetController);
+
+// Restablecer contraseña (pública)
+router.post('/reset-password', resetPasswordController);
 
 // Obtener usuario por ID (protegida)
 router.get('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), getUserByIDController);
 
 // Actualizar usuario parcialmente por ID
-router.patch('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), patchUserController);
+router.patch('/:userID',
+  authMiddleware,
+  checkOwnershipOrAdmin(getUserOwnerID),
+  patchUserController
+);
 
 // Eliminar lógicamente un usuario por ID (protegida)
 router.delete('/:userID', authMiddleware, checkRole(['SuperAdmin']), deleteUserController);

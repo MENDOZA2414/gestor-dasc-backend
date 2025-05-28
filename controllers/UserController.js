@@ -1,23 +1,40 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
+const bcrypt = require('bcrypt');
 const {
   registerUser,
   authenticateUser,
-  getUserByID,
   patchUser,
-  deleteUser
+  deleteUser,
+  changeUserPassword
 } = require('../models/User');
-const {
-  assignRolesToUser
-} = require('../models/UserRole'); 
+
 const UserRole = require('../models/UserRole');
+const { isTargetAdminUser } = require('../utils/checkTargetIsAdmin');
+const { isValidEmail, isValidPhone, isValidPassword } = require('../utils/validators/commonValidators');
 
 // Registrar usuario
 exports.registerUserController = async (req, res) => {
   const { email, password, phone, userTypeID } = req.body;
 
+  // Verificación de campos requeridos
   if (!email || !password || !phone || !userTypeID) {
     return res.status(400).send({ message: 'Faltan datos requeridos' });
+  }
+
+  // Validaciones de formato
+  if (!isValidEmail(email)) {
+    return res.status(400).send({ message: 'Formato de correo electrónico no válido' });
+  }
+
+  if (!isValidPhone(phone)) {
+    return res.status(400).send({ message: 'El teléfono debe tener 10 dígitos numéricos' });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).send({
+      message: 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúscula, minúscula, número y símbolo'
+    });
   }
 
   try {
@@ -69,53 +86,65 @@ exports.loginUserController = async (req, res) => {
     if (override) {
       await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [user.userID]);
     }
-    
-    // Generar un nuevo sessionToken
+
+    // Generar un nuevo sessionToken (interno)
     const sessionToken = jwt.sign(
       { userID: user.userID, time: Date.now() },
       process.env.JWT_SECRET,
       { expiresIn: rememberMe ? '1d' : '1h' }
     );
 
-    // Guardar en la base de datos
+    // Guardar el nuevo sessionToken en la BD
     await pool.query('UPDATE User SET sessionToken = ? WHERE userID = ?', [sessionToken, user.userID]);
 
+    // Obtener userTypeName desde la base de datos
+    const [userTypeRow] = await pool.query(`
+      SELECT ut.userTypeName
+      FROM User u
+      JOIN UserType ut ON u.userTypeID = ut.userTypeID
+      WHERE u.userID = ?
+    `, [user.userID]);
+
+    const userTypeName = userTypeRow[0]?.userTypeName || null;
+
+    // Obtener los roles del usuario
+    const rolesResult = await UserRole.getRolesByUserID(user.userID);
+    const roles = rolesResult.map(r => r.roleName);
+
+    // Generar token de acceso (JWT principal)
     const token = jwt.sign(
       {
         id: user.userID,
         email: user.email,
         userTypeID: user.userTypeID,
+        userTypeName, 
+        roles,      
         sessionToken
       },
       process.env.JWT_SECRET,
       { expiresIn: rememberMe ? '1d' : '1h' }
     );
 
-    // Enviar cookie con JWT
+    // Enviar cookie con el JWT
     res.cookie('token', token, {
       httpOnly: true,
       secure: true,
       sameSite: 'None',
-      maxAge: rememberMe ? 1 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000 // 7 días o 1 hora
+      maxAge: rememberMe ? 1 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000
     });
 
     // Obtener el controlNumber si es un estudiante
     let controlNumber = null;
-
     if (user.userTypeID === 2) {
       const [result] = await pool.query('SELECT controlNumber FROM Student WHERE userID = ?', [user.userID]);
       controlNumber = result[0]?.controlNumber || null;
     }
-    
-    // Obtener los roles del usuario
-    const rolesResult = await UserRole.getRolesByUserID(user.userID);
 
-    const roles = rolesResult.map(r => r.roleName);
-    
-    // Respuesta
+    // Respuesta final
     res.status(200).send({
       message: 'Login exitoso',
       userTypeID: user.userTypeID,
+      userTypeName,      
       userID: user.userID,
       controlNumber,
       roles,
@@ -152,15 +181,55 @@ exports.logoutUserController = async (req, res) => {
   res.status(200).send({ message: 'Sesión cerrada correctamente' });
 };
 
-// Obtener usuario por ID (si está activo)
+// Obtener usuario por ID (solo Admins o SuperAdmin)
 exports.getUserByIDController = async (req, res) => {
   const { userID } = req.params;
+  const loggedUserID = req.user.id;
+  const loggedUserRoles = req.user.roles || [];
 
   try {
-    const user = await getUserByID(userID);
-    res.status(200).json(user);
+    // Si el usuario autenticado no es SuperAdmin, y quiere ver a otro Admin → no se lo permitas
+    if (
+      loggedUserRoles.includes('Admin') &&
+      parseInt(userID) !== parseInt(loggedUserID)
+    ) {
+      // Verificamos si el usuario objetivo es también Admin
+      const [target] = await pool.query(`
+        SELECT ut.userTypeName
+        FROM User u
+        JOIN UserType ut ON u.userTypeID = ut.userTypeID
+        WHERE u.userID = ?
+      `, [userID]);
+
+      const isTargetAdmin = target[0]?.userTypeName === 'adminOnly';
+
+      if (isTargetAdmin) {
+        return res.status(403).json({ message: 'No puedes ver la información de otro administrador.' });
+      }
+    }
+
+    // Obtener información del usuario
+    const [userResult] = await pool.query(`
+      SELECT u.userID, u.email, u.phone, ut.userTypeName
+      FROM User u
+      JOIN UserType ut ON u.userTypeID = ut.userTypeID
+      WHERE u.userID = ? AND u.recordStatus = 'Activo'
+    `, [userID]);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    const user = userResult[0];
+
+    // Obtener roles del usuario objetivo
+    const roles = await UserRole.getRolesByUserID(userID);
+
+    res.status(200).json({ user, roles });
+
   } catch (error) {
-    res.status(404).send({ message: 'Usuario no encontrado', error: error.message });
+    console.error('Error en getUserByIDController:', error.message);
+    res.status(500).json({ message: 'Error al obtener usuario', error: error.message });
   }
 };
 
@@ -197,10 +266,211 @@ exports.patchUserController = async (req, res) => {
     const { userID } = req.params;
     const updateData = req.body;
 
+    const loggedUserID = req.user.id;
+    const loggedUserRoles = req.user.roles || [];
+
+    const isAdmin = loggedUserRoles.includes('Admin');
+    const isSuperAdmin = loggedUserRoles.includes('SuperAdmin');
+    const isSelf = parseInt(userID) === parseInt(loggedUserID);
+
+    // 1. Si es Admin (pero NO SuperAdmin) y quiere editar a otro Admin o SuperAdmin → denegar
+    if (isAdmin && !isSuperAdmin && !isSelf) {
+      const isTargetAdmin = await isTargetAdminUser(userID, 'Admin');
+      const isTargetSuperAdmin = await isTargetAdminUser(userID, 'SuperAdmin');
+      if (isTargetAdmin || isTargetSuperAdmin) {
+        return res.status(403).json({ message: 'No puedes editar a otro administrador.' });
+      }
+    }
+
+    // 2. Validar campos si se van a modificar
+    if (updateData.email && !isValidEmail(updateData.email)) {
+      return res.status(400).json({ message: 'Formato de correo electrónico no válido.' });
+    }
+
+    if (updateData.phone && !isValidPhone(updateData.phone)) {
+      return res.status(400).json({ message: 'El teléfono debe tener 10 dígitos.' });
+    }
+
+    // 3. Restringir campos según el rol
+    if (!isSuperAdmin) {
+      if ('email' in updateData && !isAdmin) {
+        return res.status(403).json({ message: 'No tienes permiso para cambiar tu correo electrónico.' });
+      }
+    }
+
+    // 4. Si es usuario normal (ni Admin ni SuperAdmin), solo puede editarse a sí mismo
+    if (!isAdmin && !isSuperAdmin && !isSelf) {
+      return res.status(403).json({ message: 'No tienes permiso para editar a otros usuarios.' });
+    }
+
+    // 5. Evitar cambios innecesarios
+    const [currentUserData] = await pool.query(
+      'SELECT email, phone FROM User WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (currentUserData.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado o eliminado.' });
+    }
+
+    const current = currentUserData[0];
+    const isSame =
+      (!updateData.email || updateData.email === current.email) &&
+      (!updateData.phone || updateData.phone === current.phone);
+
+    if (isSame) {
+      return res.status(200).json({
+        message: 'Los datos ingresados son iguales a los actuales. No se realizó ningún cambio.'
+      });
+    }
+
+    // 6. Ejecutar actualización
     const result = await patchUser(userID, updateData);
-    res.status(200).json(result);
+    return res.status(200).json(result);
+
   } catch (error) {
-    res.status(400).send({ message: 'Error al actualizar usuario', error: error.message });
+    console.error('Error en patchUserController:', error.message);
+    return res.status(400).json({
+      message: 'Error al actualizar usuario',
+      error: error.message
+    });
+  }
+};
+
+// Cambiar contraseña
+exports.changePasswordController = async (req, res) => {
+  try {
+    const userID = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Debes proporcionar la contraseña actual y la nueva contraseña.' });
+    }
+
+    // Validar seguridad de la nueva contraseña
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.'
+      });
+    }
+
+    // Obtener la contraseña actual
+    const [rows] = await pool.query(
+      'SELECT password FROM User WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado o eliminado.' });
+    }
+
+    const currentHashed = rows[0].password;
+
+    // Verificar contraseña actual
+    const isMatch = await bcrypt.compare(currentPassword, currentHashed);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'La contraseña actual no es correcta.' });
+    }
+
+    // Verificar si la nueva es igual a la actual
+    const isSamePassword = await bcrypt.compare(newPassword, currentHashed);
+    if (isSamePassword) {
+      return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a la actual.' });
+    }
+
+    // Encriptar nueva contraseña y actualizar
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    const [result] = await pool.query('UPDATE User SET password = ? WHERE userID = ?', [hashedNew, userID]);
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'No se pudo actualizar la contraseña.' });
+    }
+
+    return res.status(200).json({ message: 'Contraseña actualizada correctamente' });
+
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error.message);
+    return res.status(500).json({ message: 'Error interno al cambiar contraseña', error: error.message });
+  }
+};
+
+// Solicitar restablecimiento de contraseña
+exports.requestPasswordResetController = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [rows] = await pool.query('SELECT userID FROM User WHERE email = ? AND recordStatus = "Activo"', [email]);
+
+    if (rows.length === 0) {
+      // Nunca respondas si existe o no
+      return res.status(200).json({ message: 'Si el correo es válido, se enviará un enlace de recuperación.' });
+    }
+
+    const userID = rows[0].userID;
+
+    const token = jwt.sign({ userID }, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+    // Para esta versión básica, devuélvelo en el body. En producción lo enviarías por email.
+    return res.status(200).json({
+      message: 'Token de recuperación generado.',
+      token
+    });
+
+  } catch (err) {
+    console.error('Error al solicitar recuperación:', err.message);
+    res.status(500).json({ message: 'Error al procesar solicitud.' });
+  }
+};
+
+// Restablecer contraseña
+exports.resetPasswordController = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Validar seguridad de la nueva contraseña
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.'
+      });
+    }
+
+    // Obtener la contraseña actual del usuario
+    const [userRows] = await pool.query(
+      'SELECT password FROM User WHERE userID = ? AND recordStatus = "Activo"',
+      [decoded.userID]
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado o eliminado.' });
+    }
+
+    const currentHashed = userRows[0].password;
+
+    // Comparar la nueva con la actual
+    const isSamePassword = await bcrypt.compare(newPassword, currentHashed);
+    if (isSamePassword) {
+      return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a la actual.' });
+    }
+
+    // Encriptar y actualizar
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    const [result] = await pool.query(
+      'UPDATE User SET password = ? WHERE userID = ?',
+      [hashed, decoded.userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'No se pudo actualizar la contraseña.' });
+    }
+
+    return res.status(200).json({ message: 'Contraseña restablecida correctamente.' });
+
+  } catch (err) {
+    console.error('Error al restablecer contraseña:', err.message);
+    return res.status(400).json({ message: 'Token inválido o expirado.' });
   }
 };
 
@@ -208,10 +478,28 @@ exports.patchUserController = async (req, res) => {
 exports.deleteUserController = async (req, res) => {
   const { userID } = req.params;
 
+  const loggedUserID = req.user.id;
+  const loggedUserRoles = req.user.roles || [];
+
+  const isSuperAdmin = loggedUserRoles.includes('SuperAdmin');
+  const isAdmin = loggedUserRoles.includes('Admin');
+
   try {
+    // Si es Admin pero no SuperAdmin y quiere eliminar a otro admin → bloquear
+    if (
+      isAdmin &&
+      !isSuperAdmin &&
+      parseInt(userID) !== parseInt(loggedUserID) &&
+      await isTargetAdminUser(userID)
+    ) {
+      return res.status(403).json({ message: 'No puedes eliminar a otro administrador.' });
+    }
+
     const result = await deleteUser(userID);
     res.status(200).send(result);
   } catch (error) {
+    console.error('Error en deleteUserController:', error.message);
     res.status(500).send({ message: 'Error al eliminar el usuario', error: error.message });
   }
 };
+

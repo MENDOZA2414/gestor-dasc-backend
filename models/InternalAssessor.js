@@ -2,7 +2,7 @@ const pool = require('../config/db');
 const { registerUser } = require('./User');
 const createFtpStructure = require('../utils/FtpStructureBuilder');
 const uploadToFTP = require('../utils/FtpUploader'); 
-const validateInternalAssessorData = require('../utils/ValidateInternalAssessorData');
+const validateInternalAssessorData = require('../utils/validators/ValidateInternalAssessorData');
 const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
 // Registrar un asesor interno

@@ -4,7 +4,7 @@ const pool = require('../config/db');
 const { registerUser } = require('./User');
 const uploadToFTP = require('../utils/FtpUploader'); 
 const createFtpStructure = require('../utils/FtpStructureBuilder');
-const validateCompanyData = require('../utils/ValidateCompanyData');
+const validateCompanyData = require('../utils/validators/ValidateCompanyData');
 const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
 

@@ -134,6 +134,49 @@ const patchUser = async (userID, updateData) => {
     return { message: "Usuario actualizado correctamente" };
 };
 
+// Cambiar contraseña
+const changeUserPassword = async (userID, currentPassword, newPassword) => {
+  // Obtener la contraseña actual desde la base de datos
+  const [userRows] = await pool.query(
+    'SELECT password FROM User WHERE userID = ? AND recordStatus = "Activo"',
+    [userID]
+  );
+
+  if (userRows.length === 0) {
+    throw new Error('Usuario no encontrado o eliminado');
+  }
+
+  const user = userRows[0];
+
+  // Verificar que la contraseña actual sea correcta
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+  if (!isPasswordValid) {
+    throw new Error('La contraseña actual es incorrecta');
+  }
+
+  // Validar que la nueva contraseña cumpla criterios de seguridad
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    throw new Error('La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo');
+  }
+
+  // Encriptar la nueva contraseña
+  const hashed = await bcrypt.hash(newPassword, 10);
+
+  // Actualizar en la base de datos
+  const [result] = await pool.query(
+    'UPDATE User SET password = ? WHERE userID = ?',
+    [hashed, userID]
+  );
+
+  if (result.affectedRows === 0) {
+    throw new Error('No se pudo actualizar la contraseña');
+  }
+
+  return { message: 'Contraseña actualizada correctamente.' };
+};
+
+
 // Eliminar lógicamente un usuario
 const deleteUser = async (userID) => {
     const query = `UPDATE User SET recordStatus = 'Eliminado' WHERE userID = ?`;
@@ -152,5 +195,6 @@ module.exports = {
     getActiveUsers,
     getUserByID,
     patchUser,
+    changeUserPassword,
     deleteUser
 };
