@@ -105,6 +105,33 @@ exports.loginUserController = async (req, res) => {
     `, [user.userID]);
 
     const userTypeName = userTypeRow[0]?.userTypeName || null;
+    
+        // Verificar si el usuario tiene estado Pendiente o Inactivo en su tabla secundaria
+    if (![99].includes(user.userTypeID)) {  // Excepto adminOnly
+      let table = '';
+      let statusField = '';
+      switch (user.userTypeID) {
+        case 1: table = 'InternalAssessor'; statusField = 'internalAssessorStatus'; break;
+        case 2: table = 'Student'; statusField = 'studentStatus'; break;
+        case 3: table = 'ExternalAssessor'; statusField = 'externalAssessorStatus'; break;
+        case 4: table = 'Company'; statusField = 'companyStatus'; break;
+      }
+
+      if (table && statusField) {
+        const [statusRows] = await pool.query(
+          `SELECT ${statusField} FROM ${table} WHERE userID = ?`,
+          [user.userID]
+        );
+
+        if (statusRows.length > 0) {
+          const currentStatus = statusRows[0][statusField];
+          if (currentStatus !== 'Aceptado') {
+            const msg = `Tu cuenta está en estado "${currentStatus}". Comunícate con el administrador a practicas@uabcs.mx.`;
+            throw new Error(JSON.stringify({ client: msg, dev: `Estado bloqueado: ${currentStatus}` }));
+          }
+        }
+      }
+    }
 
     // Obtener los roles del usuario
     const rolesResult = await UserRole.getRolesByUserID(user.userID);
