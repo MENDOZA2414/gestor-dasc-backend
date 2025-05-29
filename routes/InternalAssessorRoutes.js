@@ -4,7 +4,6 @@ const internalAssessorController = require('../controllers/InternalAssessorContr
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
-const checkUserType = require('../middlewares/CheckUserType');
 
 // Ruta para registrar un asesor interno
 router.post(
