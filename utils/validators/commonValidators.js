@@ -2,7 +2,7 @@
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^\d{10}$/;
-const controlNumberRegex = /^\d{9}$/; 
+const controlNumberRegex = /^\d{10}$/; 
 const nameRegex = /^[A-Za-zÁÉÍÓÚÑáéíóúñ\s]+$/;
 const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 

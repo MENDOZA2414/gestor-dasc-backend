@@ -624,6 +624,80 @@ exports.resetPasswordController = async (req, res) => {
   }
 };
 
+// Activar o desactivar usuario (Admin o SuperAdmin, con restricciones)
+exports.patchUserActivationStatusController = async (req, res) => {
+  try {
+    const { userID } = req.params;
+    const { recordStatus } = req.body;
+    const loggedUserID = req.user.id;
+    const loggedUserRoles = req.user.roles || [];
+
+    // Validar estatus permitido
+    const validStatuses = ['Activo', 'Inactivo'];
+    if (!validStatuses.includes(recordStatus)) {
+      return res.status(400).json({ message: 'Estado no válido. Debe ser "Activo" o "Inactivo".' });
+    }
+
+    // Validar que exista el usuario a modificar
+    const [[targetUser]] = await pool.query(
+      'SELECT userID, userTypeID FROM User WHERE userID = ?',
+      [userID]
+    );
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Usuario no encontrado.' });
+    }
+
+    // Obtener roles del usuario objetivo
+    const targetRoles = (await UserRole.getRolesByUserID(userID)).map(r => r.roleName);
+
+    // Restricciones:
+    if (loggedUserRoles.includes('Admin')) {
+      // Un Admin NO puede modificar otro Admin ni al SuperAdmin
+      if (targetRoles.includes('Admin') || targetRoles.includes('SuperAdmin')) {
+        return res.status(403).json({
+          message: 'No tienes permiso para cambiar el estado de un usuario con rol Admin o SuperAdmin.'
+        });
+      }
+    }
+
+    // Actualizar en tabla User
+    const [result] = await pool.query(
+      'UPDATE User SET recordStatus = ? WHERE userID = ?',
+      [recordStatus, userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'No se pudo actualizar el estado del usuario.' });
+    }
+
+    // También actualizar en la tabla secundaria si existe
+    const [[{ userTypeID }]] = await pool.query('SELECT userTypeID FROM User WHERE userID = ?', [userID]);
+    const tableMap = {
+      1: 'InternalAssessor',
+      2: 'Student',
+      3: 'ExternalAssessor',
+      4: 'Company'
+    };
+    const secondaryTable = tableMap[userTypeID];
+
+    if (secondaryTable) {
+      await pool.query(
+        `UPDATE ${secondaryTable} SET recordStatus = ? WHERE userID = ?`,
+        [recordStatus, userID]
+      );
+    }
+
+    return res.status(200).json({
+      message: `Estado del usuario actualizado a ${recordStatus}`,
+      userID
+    });
+
+  } catch (error) {
+    console.error('Error en patchUserActivationStatusController:', error.message);
+    return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+  }
+};
+
 // Eliminar lógicamente un usuario
 exports.deleteUserController = async (req, res) => {
   const { userID } = req.params;

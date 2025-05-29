@@ -63,7 +63,7 @@ const validateStudentData = (data) => {
 
   // Validar número de control
   if (!isValidControlNumber(controlNumber)) {
-    throw new Error('El número de control debe tener exactamente 9 dígitos');
+    throw new Error('El número de control debe tener exactamente 10 dígitos');
   }
 };
 

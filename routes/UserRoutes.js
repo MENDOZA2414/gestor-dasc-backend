@@ -16,6 +16,7 @@ const {
   getUserByIDController,
   patchUserController,
   patchUserStatusController,
+  patchUserActivationStatusController,
   changePasswordController,
   requestPasswordResetController,
   resetPasswordController,
@@ -67,7 +68,11 @@ router.patch('/:userID', authMiddleware, checkOwnershipOrAdmin(getUserOwnerID), 
 // Cambiar estatus de usuario (solo SuperAdmin)
 router.patch('/:userID/status', authMiddleware, checkRole(['SuperAdmin']), patchUserStatusController);
 
+// Activar o desactivar usuario (Admin y SuperAdmin)
+router.patch('/:userID/activation', authMiddleware, checkRole(['Admin', 'SuperAdmin']), patchUserActivationStatusController);
+
 // Eliminar lógicamente
 router.delete('/:userID', authMiddleware, checkRole(['SuperAdmin']), deleteUserController);
+
 
 module.exports = router;
