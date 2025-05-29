@@ -9,25 +9,29 @@ const registerStudentController = async (req, res) => {
     console.log("BODY:", req.body);
     console.log("FOTO GENERADA:", req.generatedFileName);
     console.log("BUFFER:", req.bufferFile ? "Sí hay foto" : "No hay foto");
-    // Arma el objeto studentData desde los datos del formulario (FormData)
+
+    // Validación básica del campo status
+    const allowedStatuses = ['Pendiente', 'Aceptado', 'Rechazado'];
+    if (!allowedStatuses.includes(req.body.status)) {
+      return res.status(400).json({ message: 'El campo "status" debe ser: Pendiente, Aceptado o Rechazado.' });
+    }
+
+    // Armar objeto studentData
     const studentData = {
       ...req.body,
+      status: req.body.status || 'Pendiente',
       semester: req.body.semester,
       internalAssessorID: Number(req.body.internalAssessorID),
-      // Estos dos campos vienen del middleware ProfileUpload
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null,
     };
 
-    // Llamar al modelo que hace el registro en la base de datos y (opcionalmente) FTP
     const result = await registerStudent(studentData, req.generatedFileName, req.bufferFile);
 
-    // Si todo sale bien
     res.status(201).json(result);
   } catch (error) {
     console.error('Error al registrar el alumno:', error.message);
 
-    // Lista de errores conocidos para devolver 400
     const knownValidationErrors = [
       'El número de control',
       'El email ya está registrado',
@@ -43,7 +47,6 @@ const registerStudentController = async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
-    // Cualquier otro error inesperado
     res.status(500).json({ message: 'Error al registrar el alumno', error: error.message });
   }
 };

@@ -11,7 +11,6 @@ const validateStudentData = (data) => {
     career,
     semester,
     shift,
-    studentStatus,
     status,
     controlNumber
   } = data;
@@ -23,7 +22,7 @@ const validateStudentData = (data) => {
     career,
     semester,
     shift,
-    studentStatus,
+    status,
     controlNumber
   };
 

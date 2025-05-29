@@ -20,8 +20,7 @@ const registerStudent = async (studentData) => {
       email, password, phone,
       firstName, firstLastName, secondLastName,
       dateOfBirth, career, semester, shift,
-      controlNumber, studentStatus, status,
-      internalAssessorID
+      controlNumber, status, internalAssessorID
     } = studentData;
 
     // Validar duplicado
@@ -53,14 +52,17 @@ const registerStudent = async (studentData) => {
 
     // Insertar alumno
     const insertQuery = `
-      INSERT INTO Student (controlNumber, userID, firstName, firstLastName, secondLastName, dateOfBirth, career, semester, shift, studentStatus, status, internalAssessorID, photo)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO Student (
+        controlNumber, userID, firstName, firstLastName, secondLastName, 
+        dateOfBirth, career, semester, shift, status, internalAssessorID, photo
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await connection.query(insertQuery, [
       controlNumber, userID, firstName, firstLastName, secondLastName,
       dateOfBirth, career, semester, shift,
-      studentStatus, status, internalAssessorID,
-      generatedFileName || null // ← insertamos el nombre del archivo
+      status, internalAssessorID,
+      generatedFileName || null
     ]);
 
     const [[{ studentID }]] = await connection.query("SELECT LAST_INSERT_ID() AS studentID");
@@ -82,16 +84,12 @@ const registerStudent = async (studentData) => {
       const photoUrl = `https://uabcs.online/practicas${ftpPhotoPath}`;
 
       try {
-        await uploadToFTP(bufferFile, ftpPhotoPath, {
-          overwrite: true
-        });
-
+        await uploadToFTP(bufferFile, ftpPhotoPath, { overwrite: true });
         await connection.query(`UPDATE Student SET photo = ? WHERE studentID = ?`, [photoUrl, studentID]);
       } catch (err) {
         console.warn("Alumno registrado, pero falló la subida de la foto:", err.message);
       }
     }
-
 
     return { message: 'Alumno registrado exitosamente' };
 
@@ -102,6 +100,7 @@ const registerStudent = async (studentData) => {
     connection.release();
   }
 };
+
 
 // Obtener alumnos del asesor autenticado (por su ID)
 const getStudentsByAssessorLogged = async (internalAssessorID) => {
