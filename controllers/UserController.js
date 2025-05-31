@@ -755,3 +755,20 @@ exports.deleteUserController = async (req, res) => {
   }
 };
 
+// Editar el teléfono del propio usuario
+exports.patchOwnPhoneController = async (req, res) => {
+  const userID = req.user.id;
+  const { phone } = req.body;
+
+  if (!phone || phone.trim() === '') {
+    return res.status(400).json({ message: 'El número de teléfono es requerido' });
+  }
+
+  try {
+    await pool.query('UPDATE User SET phone = ? WHERE userID = ?', [phone.trim(), userID]);
+    res.status(200).json({ message: 'Número de teléfono actualizado correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar teléfono:', error.message);
+    res.status(500).json({ message: 'Error interno al actualizar el número de teléfono' });
+  }
+};

@@ -21,7 +21,9 @@ const {
   requestPasswordResetController,
   resetPasswordController,
   deleteUserController,
-  getUserProfileAndRoles
+  getUserProfileAndRoles,
+  patchOwnPhoneController,
+
 } = require('../controllers/UserController');
 
 // ──────── Rutas públicas ────────
@@ -51,7 +53,10 @@ router.get('/protected', authMiddleware, (req, res) => {
 router.get('/me', authMiddleware, getUserProfileAndRoles);
 
 // Subir foto de perfil
-router.post('/upload-profile-photo', authMiddleware, uploadProfile, uploadProfilePhoto);
+router.patch('/me/photo', authMiddleware, uploadProfile, uploadProfilePhoto);
+
+// Ruta para que Admin/SuperAdmin actualicen la foto de otro usuario
+router.patch('/:userID/photo', authMiddleware, checkRole(['Admin', 'SuperAdmin']), uploadProfile, uploadProfilePhoto);
 
 // Cerrar sesión
 router.post('/logout', authMiddleware, logoutUserController);
@@ -74,5 +79,7 @@ router.patch('/:userID/activation', authMiddleware, checkRole(['Admin', 'SuperAd
 // Eliminar lógicamente
 router.delete('/:userID', authMiddleware, checkRole(['SuperAdmin']), deleteUserController);
 
+// Editar el teléfono del propio usuario
+router.patch('/me/phone', authMiddleware, patchOwnPhoneController);
 
 module.exports = router;

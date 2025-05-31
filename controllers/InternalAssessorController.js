@@ -159,9 +159,47 @@ const patchInternalAssessorController = async (req, res) => {
       return res.status(404).json({ message: 'Asesor interno no encontrado o ya eliminado.' });
     }
 
-    const result = await InternalAssessor.patchInternalAssessor(internalAssessorID, updateData);
-    res.status(200).json({ message: 'Asesor actualizado correctamente', result });
+    // Separar campos que pertenecen a la tabla User
+    const userFields = ['email', 'phone'];
+    const userUpdates = {};
+    const internalUpdates = {};
 
+    for (const key in updateData) {
+      if (userFields.includes(key)) {
+        userUpdates[key] = updateData[key];
+      } else if (key !== 'recordStatus' && key !== 'status') {
+        internalUpdates[key] = updateData[key];
+      }
+    }
+
+    // Actualizar tabla InternalAssessor
+    let internalResult = null;
+    if (Object.keys(internalUpdates).length > 0) {
+      internalResult = await InternalAssessor.patchInternalAssessor(internalAssessorID, internalUpdates);
+    }
+
+    // Actualizar tabla User
+    let userResult = null;
+    if (Object.keys(userUpdates).length > 0) {
+      const [userRow] = await pool.query('SELECT userID FROM InternalAssessor WHERE internalAssessorID = ?', [internalAssessorID]);
+      const userID = userRow[0]?.userID;
+      if (!userID) {
+        return res.status(404).json({ message: 'Usuario asociado no encontrado.' });
+      }
+
+      const fields = Object.keys(userUpdates).map(field => `${field} = ?`).join(', ');
+      const values = Object.values(userUpdates);
+      values.push(userID);
+
+      await pool.query(`UPDATE User SET ${fields} WHERE userID = ?`, values);
+      userResult = { message: 'Datos de usuario actualizados' };
+    }
+
+    return res.status(200).json({
+      message: 'Asesor actualizado correctamente',
+      internalResult,
+      userResult
+    });
   } catch (error) {
     console.error('Error al actualizar parcialmente el asesor interno:', error.message);
     res.status(500).json({ message: 'No se pudo actualizar el asesor interno', error: error.message });

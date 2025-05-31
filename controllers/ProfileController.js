@@ -11,7 +11,11 @@ const userTypeMap = {
 };
 
 const uploadProfilePhoto = async (req, res) => {
-  const { userID } = req.body;
+  const userID = req.params.userID || req.user?.id;
+
+  if (!userID) {
+    return res.status(400).json({ error: "No se pudo determinar el usuario" });
+  }
 
   if (!req.bufferFile || !req.generatedFileName) {
     return res.status(400).json({ error: "Archivo de imagen no recibido correctamente" });
@@ -28,35 +32,28 @@ const uploadProfilePhoto = async (req, res) => {
     const column = mapping.column;
 
     // Obtener foto anterior
-    const [[existing]] = await pool.query(
-      `SELECT ${column} FROM ${table} WHERE userID = ?`,
-      [userID]
-    );
+    const [[existing]] = await pool.query(`SELECT ${column} FROM ${table} WHERE userID = ?`, [userID]);
 
-    // Eliminar foto anterior si existe
+    // Eliminar si existe
     if (existing?.[column]) {
       const ftpOldPath = existing[column].replace("https://uabcs.online/practicas", "");
       try {
         await deleteFileFromFTP(ftpOldPath);
-        console.log("Foto anterior eliminada correctamente.");
       } catch (err) {
         console.warn("No se pudo eliminar la foto anterior:", err.message);
       }
     }
 
-    // Subir nueva foto
+    // Subir nueva
     const remotePath = `/images/profiles/${req.generatedFileName}`;
     const publicUrl = `https://uabcs.online/practicas${remotePath}`;
-
     await uploadToFTP(req.bufferFile, remotePath, { overwrite: true });
 
-    // Actualizar en la BD
-    await pool.query(
-      `UPDATE ${table} SET ${column} = ? WHERE userID = ?`,
-      [publicUrl, userID]
-    );
+    // Guardar en BD
+    await pool.query(`UPDATE ${table} SET ${column} = ? WHERE userID = ?`, [publicUrl, userID]);
 
     res.status(200).json({ message: "Foto de perfil actualizada", photo: publicUrl });
+
   } catch (error) {
     console.error("Error al subir la foto de perfil:", error);
     res.status(500).json({ error: "Error al actualizar la foto de perfil" });

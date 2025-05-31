@@ -1,18 +1,26 @@
 const express = require('express');
 const router = express.Router();
+
 const internalAssessorController = require('../controllers/InternalAssessorController');
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 
-// Ruta para registrar un asesor interno
-router.post(
-  '/register',
-  profileUploadMiddleware,
-  internalAssessorController.registerInternalAssessorController
+// ──────── Rutas públicas ────────
+
+// Obtener todos los asesores internos (visible para alumnos al registrarse)
+router.get('/', internalAssessorController.getAllInternalAssessors);
+
+// ──────── Rutas protegidas ────────
+
+// Obtener asesor interno por ID (para Admin, SuperAdmin o dueño del perfil)
+router.get(
+  '/:id',
+  authMiddleware,
+  internalAssessorController.getInternalAssessorByID
 );
 
-// Ruta para contar el número de asesores internos
+// Contar número total de asesores internos
 router.get(
   '/count',
   authMiddleware,
@@ -20,28 +28,14 @@ router.get(
   internalAssessorController.countInternalAssessors
 );
 
-// Ruta para obtener un asesor interno por ID
-router.get(
-  '/:id',
-  authMiddleware,
-  internalAssessorController.getInternalAssessorByID
+// Registrar un nuevo asesor interno
+router.post(
+  '/register',
+  profileUploadMiddleware,
+  internalAssessorController.registerInternalAssessorController
 );
 
-// Ruta para obtener todos los asesores internos
-router.get(
-  '/',
-  internalAssessorController.getAllInternalAssessors
-);
-
-// Ruta para eliminar un asesor interno por ID (eliminación lógica)
-router.delete(
-  '/:id',
-  authMiddleware,
-  checkRole(['SuperAdmin']),
-  internalAssessorController.deleteInternalAssessor
-);
-
-// Ruta para actualizar un asesor interno por ID
+// Actualizar parcialmente los datos de un asesor interno
 router.patch(
   '/:id',
   authMiddleware,
@@ -49,6 +43,7 @@ router.patch(
   internalAssessorController.patchInternalAssessorController
 );
 
+// Cambiar el estatus del asesor (Aceptado, Rechazado, Pendiente)
 router.patch(
   '/:userID/status',
   authMiddleware,
@@ -56,5 +51,12 @@ router.patch(
   internalAssessorController.updatestatus
 );
 
+// Eliminar lógicamente un asesor interno
+router.delete(
+  '/:id',
+  authMiddleware,
+  checkRole(['SuperAdmin']),
+  internalAssessorController.deleteInternalAssessor
+);
 
 module.exports = router;
