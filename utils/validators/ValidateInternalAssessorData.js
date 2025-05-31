@@ -4,7 +4,7 @@ const validateInternalAssessorData = (data) => {
     firstLastName,
     secondLastName, // opcional
     phone,
-    internalAssessorStatus
+    status
   } = data;
 
   // Validar campos obligatorios
@@ -12,7 +12,7 @@ const validateInternalAssessorData = (data) => {
     firstName,
     firstLastName,
     phone,
-    internalAssessorStatus
+    status
   };
 
   for (const [key, value] of Object.entries(requiredFields)) {
@@ -28,7 +28,7 @@ const validateInternalAssessorData = (data) => {
 
   // Validar valores permitidos para el estatus
   const validStatuses = ['Activo', 'Inactivo', 'Pendiente'];
-  if (!validStatuses.includes(internalAssessorStatus)) {
+  if (!validStatuses.includes(status)) {
     throw new Error('Estatus no válido: debe ser Activo, Inactivo o Pendiente');
   }
 };

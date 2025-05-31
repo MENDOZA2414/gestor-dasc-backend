@@ -18,7 +18,7 @@ const registerInternalAssessor = async (assessorData) => {
             email, password, phone,
             firstName, firstLastName, secondLastName,
             profilePhotoName, profilePhotoBuffer,
-            internalAssessorStatus = 'Activo'
+            status = 'Activo'
         } = assessorData;
 
         const userID = await registerUser(connection, email, password, phone, 1); // 1 Tipo: Asesor Interno
@@ -29,12 +29,12 @@ const registerInternalAssessor = async (assessorData) => {
         // Insertar con photo = null inicialmente
         const insertQuery = `
             INSERT INTO InternalAssessor (
-                userID, firstName, firstLastName, secondLastName, photo, internalAssessorStatus
+                userID, firstName, firstLastName, secondLastName, photo, status
             ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
         await connection.query(insertQuery, [
-            userID, firstName, firstLastName, secondLastName, null, internalAssessorStatus
+            userID, firstName, firstLastName, secondLastName, null, status
         ]);
 
         const [[{ internalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS internalAssessorID");

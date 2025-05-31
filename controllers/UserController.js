@@ -86,6 +86,34 @@ exports.loginUserController = async (req, res) => {
       await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [user.userID]);
     }
 
+    // Verificar si el usuario tiene estado Pendiente o Rechazado o está eliminado
+    if (![99].includes(user.userTypeID)) {  // Excepto adminOnly
+      let table = '';
+      switch (user.userTypeID) {
+        case 1: table = 'InternalAssessor'; break;
+        case 2: table = 'Student'; break;
+        case 3: table = 'ExternalAssessor'; break;
+        case 4: table = 'Company'; break;
+      }
+
+      if (table) {
+        const [statusRows] = await pool.query(
+          `SELECT status FROM ${table} WHERE userID = ? AND recordStatus = 'Activo'`,
+          [user.userID]
+        );
+
+        if (statusRows.length > 0) {
+          const currentStatus = statusRows[0].status;
+          if (currentStatus !== 'Aceptado') {
+            const msg = `Tu cuenta está en estado "${currentStatus}". Comunícate con el administrador a practicas@uabcs.mx.`;
+            throw new Error(JSON.stringify({ client: msg, dev: `Estado bloqueado: ${currentStatus}` }));
+          }
+        } else {
+          throw new Error(JSON.stringify({ client: 'Usuario no encontrado o inactivo.', dev: 'Registro secundario ausente o eliminado' }));
+        }
+      }
+    }
+
     // Generar un nuevo sessionToken (interno)
     const sessionToken = jwt.sign(
       { userID: user.userID, time: Date.now() },
@@ -105,33 +133,6 @@ exports.loginUserController = async (req, res) => {
     `, [user.userID]);
 
     const userTypeName = userTypeRow[0]?.userTypeName || null;
-    
-        // Verificar si el usuario tiene estado Pendiente o Inactivo en su tabla secundaria
-    if (![99].includes(user.userTypeID)) {  // Excepto adminOnly
-      let table = '';
-      let statusField = '';
-      switch (user.userTypeID) {
-        case 1: table = 'InternalAssessor'; statusField = 'internalAssessorStatus'; break;
-        case 2: table = 'Student'; statusField = 'studentStatus'; break;
-        case 3: table = 'ExternalAssessor'; statusField = 'externalAssessorStatus'; break;
-        case 4: table = 'Company'; statusField = 'companyStatus'; break;
-      }
-
-      if (table && statusField) {
-        const [statusRows] = await pool.query(
-          `SELECT ${statusField} FROM ${table} WHERE userID = ?`,
-          [user.userID]
-        );
-
-        if (statusRows.length > 0) {
-          const currentStatus = statusRows[0][statusField];
-          if (currentStatus !== 'Aceptado') {
-            const msg = `Tu cuenta está en estado "${currentStatus}". Comunícate con el administrador a practicas@uabcs.mx.`;
-            throw new Error(JSON.stringify({ client: msg, dev: `Estado bloqueado: ${currentStatus}` }));
-          }
-        }
-      }
-    }
 
     // Obtener los roles del usuario
     const rolesResult = await UserRole.getRolesByUserID(user.userID);
@@ -178,26 +179,24 @@ exports.loginUserController = async (req, res) => {
     });
 
   } catch (error) {
-  let clientMessage = 'Correo o contraseña incorrectos';
-  let devMessage = error.message;
+    let clientMessage = 'Correo o contraseña incorrectos';
+    let devMessage = error.message;
 
-  try {
-    const parsed = JSON.parse(error.message);
-    clientMessage = parsed.client || clientMessage;
-    devMessage = parsed.dev || devMessage;
-  } catch (_) {
-    // Si no se puede parsear, se deja el mensaje por defecto
+    try {
+      const parsed = JSON.parse(error.message);
+      clientMessage = parsed.client || clientMessage;
+      devMessage = parsed.dev || devMessage;
+    } catch (_) {
+      // Si no se puede parsear, se deja el mensaje por defecto
+    }
+
+    console.error('Error en login:', devMessage);
+
+    res.status(401).send({
+      message: clientMessage,
+      // error: process.env.NODE_ENV === 'development' ? devMessage : undefined
+    });
   }
-
-  console.error('Error en login:', devMessage);
-
-  res.status(401).send({
-    message: clientMessage,
-    // Solo si estás en desarrollo puedes mandar el error interno
-    // error: process.env.NODE_ENV === 'development' ? devMessage : undefined
-  });
-}
-
 };
 
 // Cerrar sesión
@@ -426,7 +425,7 @@ exports.patchUserStatusController = async (req, res) => {
       switch (userTypeID) {
         case 1:
           secondaryTable = 'InternalAssessor';
-          statusField = 'internalAssessorStatus';
+          statusField = 'status';
           break;
         case 2:
           secondaryTable = 'Student';

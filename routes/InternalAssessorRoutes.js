@@ -49,4 +49,12 @@ router.patch(
   internalAssessorController.patchInternalAssessorController
 );
 
+router.patch(
+  '/:userID/status',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  internalAssessorController.updatestatus
+);
+
+
 module.exports = router;

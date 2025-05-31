@@ -27,7 +27,7 @@ const registerInternalAssessorController = async (req, res) => {
       firstName,
       firstLastName,
       secondLastName: secondLastName || null,
-      internalAssessorStatus: 'Pendiente', // estado inicial hasta que el admin lo apruebe
+      status: 'Pendiente', // estado inicial hasta que el admin lo apruebe
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null
     };
@@ -168,11 +168,41 @@ const patchInternalAssessorController = async (req, res) => {
   }
 };
 
+// Cambiar el status operativo de un asesor interno
+const updatestatus = async (req, res) => {
+  const { userID } = req.params;
+  const { status } = req.body;
+  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente'];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Estado no válido. Usa: Aceptado, Rechazado o Pendiente.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      'UPDATE InternalAssessor SET status = ? WHERE userID = ? AND recordStatus = "Activo"',
+      [status, userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Asesor interno no encontrado o eliminado.' });
+    }
+
+    return res.status(200).json({ message: `Status actualizado a "${status}" correctamente.` });
+  } catch (error) {
+    console.error('Error al actualizar status:', error.message);
+    return res.status(500).json({ message: 'Error interno al actualizar status.', error: error.message });
+  }
+};
+
 module.exports = {
     registerInternalAssessorController,
     getInternalAssessorByID,
     getAllInternalAssessors,
     countInternalAssessors,
     deleteInternalAssessor,
-    patchInternalAssessorController
+    patchInternalAssessorController,
+    updatestatus 
 };
+
+
