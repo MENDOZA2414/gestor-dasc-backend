@@ -232,20 +232,21 @@ const getStudentsByStatusAndAssessorID = async (req, res) => {
 };
 
 // Obtener todos los alumnos por estatus del estudiante
-const getStudentsByStudentStatus = async (req, res) => {
-    try {
-      const { studentStatus } = req.query;
-      if (!studentStatus) {
-        return res.status(400).json({ message: "El parámetro 'studentStatus' es obligatorio" });
-      }
-  
-      const students = await Student.getStudentsByStudentStatus(studentStatus);
-      res.status(200).json(students);
-    } catch (error) {
-      console.error('Error al obtener estudiantes por studentStatus:', error.message);
-      res.status(500).json({ message: 'Error en el servidor' });
+const getStudentsByStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+    if (!status) {
+      return res.status(400).json({ message: "El parámetro 'status' es obligatorio" });
     }
+
+    const students = await Student.getStudentsByStatus(status);
+    res.status(200).json(students);
+  } catch (error) {
+    console.error('Error al obtener estudiantes por status:', error.message);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
 };
+
   
 // PATCH - Actualizar parcialmente los datos de un alumno
 const patchStudentController = async (req, res) => {
@@ -304,7 +305,7 @@ module.exports = {
     getStudentsByInternalAssessorID,
     getAllStudents,
     getStudentsByStatusAndAssessorID,
-    getStudentsByStudentStatus,
+    getStudentsByStatus,
     countStudents,
     patchStudentController,
     deleteStudentByControlNumber,

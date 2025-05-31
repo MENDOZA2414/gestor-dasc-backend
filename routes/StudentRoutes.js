@@ -60,7 +60,7 @@ router.get(
   '/by-student-status',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
-  studentController.getStudentsByStudentStatus
+  studentController.getStudentsByStatus
 );
 
 // Ruta para obtener un alumno por controlNumber

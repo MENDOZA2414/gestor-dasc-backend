@@ -432,7 +432,7 @@ exports.patchUserStatusController = async (req, res) => {
           break;
         case 2:
           secondaryTable = 'Student';
-          statusField = 'studentStatus';
+          statusField = 'status';
           break;
         case 3:
           secondaryTable = 'ExternalAssessor';
