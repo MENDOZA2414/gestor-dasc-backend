@@ -66,6 +66,37 @@ exports.loginUserController = async (req, res) => {
   try {
     const user = await authenticateUser(email, password);
 
+    // Validar estado de usuario antes de continuar
+    if (![99].includes(user.userTypeID)) {  // Excepto adminOnly
+      let table = '';
+      switch (user.userTypeID) {
+        case 1: table = 'InternalAssessor'; break;
+        case 2: table = 'Student'; break;
+        case 3: table = 'ExternalAssessor'; break;
+        case 4: table = 'Company'; break;
+      }
+
+      if (table) {
+        const [statusRows] = await pool.query(
+          `SELECT status, recordStatus FROM ${table} WHERE userID = ?`,
+          [user.userID]
+        );
+
+        if (statusRows.length === 0 || statusRows[0].recordStatus !== 'Activo') {
+          return res.status(401).send({
+            message: 'Usuario no encontrado o inactivo.'
+          });
+        }
+
+        const currentStatus = statusRows[0].status;
+        if (currentStatus !== 'Aceptado') {
+          return res.status(401).send({
+            message: `Tu cuenta está en estado "${currentStatus}". Comunícate con el administrador a practicas@uabcs.mx.`
+          });
+        }
+      }
+    }
+
     // Obtener token actual de la BD
     const [sessionResult] = await pool.query('SELECT sessionToken FROM User WHERE userID = ?', [user.userID]);
     const currentToken = sessionResult[0]?.sessionToken;
@@ -84,34 +115,6 @@ exports.loginUserController = async (req, res) => {
     // Si override es true, limpiar el token anterior (aunque sea válido)
     if (override) {
       await pool.query('UPDATE User SET sessionToken = NULL WHERE userID = ?', [user.userID]);
-    }
-
-    // Verificar si el usuario tiene estado Pendiente o Rechazado o está eliminado
-    if (![99].includes(user.userTypeID)) {  // Excepto adminOnly
-      let table = '';
-      switch (user.userTypeID) {
-        case 1: table = 'InternalAssessor'; break;
-        case 2: table = 'Student'; break;
-        case 3: table = 'ExternalAssessor'; break;
-        case 4: table = 'Company'; break;
-      }
-
-      if (table) {
-        const [statusRows] = await pool.query(
-          `SELECT status FROM ${table} WHERE userID = ? AND recordStatus = 'Activo'`,
-          [user.userID]
-        );
-
-        if (statusRows.length > 0) {
-          const currentStatus = statusRows[0].status;
-          if (currentStatus !== 'Aceptado') {
-            const msg = `Tu cuenta está en estado "${currentStatus}". Comunícate con el administrador a practicas@uabcs.mx.`;
-            throw new Error(JSON.stringify({ client: msg, dev: `Estado bloqueado: ${currentStatus}` }));
-          }
-        } else {
-          throw new Error(JSON.stringify({ client: 'Usuario no encontrado o inactivo.', dev: 'Registro secundario ausente o eliminado' }));
-        }
-      }
     }
 
     // Generar un nuevo sessionToken (interno)
@@ -144,8 +147,8 @@ exports.loginUserController = async (req, res) => {
         id: user.userID,
         email: user.email,
         userTypeID: user.userTypeID,
-        userTypeName, 
-        roles,      
+        userTypeName,
+        roles,
         sessionToken
       },
       process.env.JWT_SECRET,
@@ -171,7 +174,7 @@ exports.loginUserController = async (req, res) => {
     res.status(200).send({
       message: 'Login exitoso',
       userTypeID: user.userTypeID,
-      userTypeName,      
+      userTypeName,
       userID: user.userID,
       controlNumber,
       roles,
