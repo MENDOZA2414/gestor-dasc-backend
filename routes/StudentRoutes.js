@@ -86,4 +86,13 @@ router.patch(
   studentController.patchStudentController
 );
 
+// Reasignar asesor interno a un alumno
+router.patch(
+  '/:controlNumber/assessor',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.reassignAssessorController
+);
+
+
 module.exports = router;

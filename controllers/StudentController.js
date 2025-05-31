@@ -12,14 +12,16 @@ const registerStudentController = async (req, res) => {
 
     // Validación básica del campo status
     const allowedStatuses = ['Pendiente', 'Aceptado', 'Rechazado'];
-    if (!allowedStatuses.includes(req.body.status)) {
+    const status = req.body.status || 'Pendiente';
+
+    if (!allowedStatuses.includes(status)) {
       return res.status(400).json({ message: 'El campo "status" debe ser: Pendiente, Aceptado o Rechazado.' });
     }
 
     // Armar objeto studentData
     const studentData = {
       ...req.body,
-      status: req.body.status || 'Pendiente',
+      status,
       semester: req.body.semester,
       internalAssessorID: Number(req.body.internalAssessorID),
       profilePhotoName: req.generatedFileName || null,
@@ -276,6 +278,24 @@ const deleteStudentByControlNumber = async (req, res) => {
     }
 };
 
+const reassignAssessorController = async (req, res) => {
+  try {
+    const { controlNumber } = req.params;
+    const { internalAssessorID } = req.body;
+
+    if (!internalAssessorID) {
+      return res.status(400).json({ message: 'Debes proporcionar un ID de asesor interno' });
+    }
+
+    const reassignmentResult = await Student.reassignAssessor(controlNumber, internalAssessorID);
+    res.status(200).json(reassignmentResult);
+
+  } catch (error) {
+    console.error('Error al reasignar asesor:', error.message);
+    res.status(500).json({ message: 'Error al reasignar asesor interno', error: error.message });
+  }
+};
+
 // Exportar todas las funciones
 module.exports = {
     registerStudentController,
@@ -287,5 +307,6 @@ module.exports = {
     getStudentsByStudentStatus,
     countStudents,
     patchStudentController,
-    deleteStudentByControlNumber
+    deleteStudentByControlNumber,
+    reassignAssessorController
 };

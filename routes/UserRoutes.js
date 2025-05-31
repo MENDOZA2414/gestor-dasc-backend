@@ -70,10 +70,10 @@ router.get('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), getUs
 // Actualizar parcialmente (correo o teléfono)
 router.patch('/:userID', authMiddleware, checkOwnershipOrAdmin(getUserOwnerID), patchUserController);
 
-// Cambiar estatus de usuario (solo SuperAdmin)
+// Cambiar estatus de usuario (solo SuperAdmin) Reactiva un usuario eliminado
 router.patch('/:userID/status', authMiddleware, checkRole(['SuperAdmin']), patchUserStatusController);
 
-// Activar o desactivar usuario (Admin y SuperAdmin)
+// Activar o desactivar usuario (Admin y SuperAdmin) 
 router.patch('/:userID/activation', authMiddleware, checkRole(['Admin', 'SuperAdmin']), patchUserActivationStatusController);
 
 // Eliminar lógicamente

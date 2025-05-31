@@ -34,11 +34,14 @@ const registerStudent = async (studentData) => {
 
     // Validar existencia del asesor interno
     const [existingAssessor] = await connection.query(
-      'SELECT * FROM InternalAssessor WHERE internalAssessorID = ?',
+      `SELECT * FROM InternalAssessor 
+      WHERE internalAssessorID = ? 
+        AND status = 'Pendiente' 
+        AND recordStatus = 'Activo'`,
       [internalAssessorID]
     );
     if (existingAssessor.length === 0) {
-      throw new Error('El asesor interno no existe');
+      throw new Error('El asesor interno no está disponible o ha sido rechazado.');
     }
 
     // Registrar usuario
@@ -245,6 +248,47 @@ const patchStudent = async (controlNumber, fieldsToUpdate) => {
   return { message: "Alumno actualizado correctamente" };
 };
 
+// Reasignar un asesor interno a un alumno
+const reassignAssessor = async (controlNumber, internalAssessorID) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Verificar que el alumno exista y esté activo
+    const [studentRows] = await connection.query(
+      'SELECT * FROM Student WHERE controlNumber = ? AND recordStatus = "Activo"',
+      [controlNumber]
+    );
+    if (studentRows.length === 0) {
+      throw new Error('Alumno no encontrado o eliminado');
+    }
+
+    // Verificar que el asesor sea válido y esté disponible
+    const [assessorRows] = await connection.query(
+      'SELECT * FROM InternalAssessor WHERE internalAssessorID = ? AND status = "Aceptado" AND recordStatus = "Activo"',
+      [internalAssessorID]
+    );
+    if (assessorRows.length === 0) {
+      throw new Error('Asesor interno no válido o no disponible');
+    }
+
+    // Reasignar asesor
+    await connection.query(
+      'UPDATE Student SET internalAssessorID = ? WHERE controlNumber = ?',
+      [internalAssessorID, controlNumber]
+    );
+
+    await connection.commit();
+    return { message: 'Asesor interno reasignado correctamente' };
+
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
     registerStudent,
     getStudentsByAssessorLogged,
@@ -255,5 +299,6 @@ module.exports = {
     getStudentsByStudentStatus,
     countStudents,
     deleteStudentByControlNumber,
-    patchStudent
+    patchStudent,
+    reassignAssessor
 };
