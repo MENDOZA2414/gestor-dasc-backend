@@ -75,6 +75,13 @@ const registerInternalAssessor = async (assessorData) => {
     }
 };
 
+// Obtener un asesor interno por userID autenticado
+const getByUserID = async (userID) => {
+  const query = 'SELECT * FROM InternalAssessor WHERE userID = ? AND recordStatus = "Activo"';
+  const [rows] = await pool.query(query, [userID]);
+  return rows[0];
+};
+
 // Obtener un asesor interno por ID
 const getInternalAssessorByID = async (internalAssessorID) => {
     const query = 'SELECT * FROM InternalAssessor WHERE internalAssessorID = ? AND recordStatus = "Activo"';
@@ -168,6 +175,7 @@ const patchInternalAssessor = async (internalAssessorID, updateData) => {
 
 module.exports = {
     registerInternalAssessor,
+    getByUserID,
     getInternalAssessorByID,
     getAllInternalAssessors,
     countInternalAssessors,

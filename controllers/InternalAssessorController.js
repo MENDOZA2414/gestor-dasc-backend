@@ -47,6 +47,23 @@ const registerInternalAssessorController = async (req, res) => {
   }
 };
 
+// Obtener el perfil del asesor interno autenticado
+const getInternalAssessorProfile = async (req, res) => {
+  try {
+    const userID = req.user.id;
+
+    const assessor = await InternalAssessor.getByUserID(userID);
+    if (!assessor || assessor.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Asesor interno no encontrado o eliminado.' });
+    }
+
+    res.status(200).json(assessor);
+  } catch (error) {
+    console.error('Error al obtener perfil del asesor:', error.message);
+    res.status(500).json({ message: 'Error al obtener perfil del asesor interno.' });
+  }
+};
+
 // Obtener un asesor interno por ID
 const getInternalAssessorByID = async (req, res) => {
   try {
@@ -235,6 +252,7 @@ const updatestatus = async (req, res) => {
 
 module.exports = {
     registerInternalAssessorController,
+    getInternalAssessorProfile,
     getInternalAssessorByID,
     getAllInternalAssessors,
     countInternalAssessors,

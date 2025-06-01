@@ -5,6 +5,7 @@ const internalAssessorController = require('../controllers/InternalAssessorContr
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
+const checkUserType = require('../middlewares/CheckUserType');
 
 // ──────── Rutas públicas ────────
 
@@ -12,6 +13,13 @@ const checkRole = require('../middlewares/CheckRole');
 router.get('/', internalAssessorController.getAllInternalAssessors);
 
 // ──────── Rutas protegidas ────────
+
+router.get(
+  '/me',
+  authMiddleware,
+  checkUserType(['internalAssessor']),
+  internalAssessorController.getInternalAssessorProfile
+);
 
 // Obtener asesor interno por ID (para Admin, SuperAdmin o dueño del perfil)
 router.get(
