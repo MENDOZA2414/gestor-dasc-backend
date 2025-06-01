@@ -1,7 +1,23 @@
-// Controlador para gestionar las operaciones de entidades receptoras.
-
 const Company = require('../models/Company');
 const getUserRoles = require('../utils/GetUserRoles');
+const pool = require('../config/db');
+
+// Obtener el perfil de la entidad receptora del usuario autenticado
+const getCompanyProfile = async (req, res) => {
+  try {
+    const userID = req.user.id;
+
+    const company = await Company.getByUserID(userID);
+    if (!company || company.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
+    }
+
+    res.status(200).json(company);
+  } catch (error) {
+    console.error('Error al obtener perfil de la entidad:', error.message);
+    res.status(500).json({ message: 'Error al obtener perfil de la entidad.' });
+  }
+};
 
 // Obtener una entidad receptora por ID
 const getCompanyByID = async (req, res) => {
@@ -150,14 +166,18 @@ const registerCompany = async (req, res) => {
   }
 };
 
-
 // Eliminar lógicamente una entidad receptora por ID
 const deleteCompany = async (req, res) => {
   try {
     const companyID = parseInt(req.params.companyID);
 
-    // Verificar que exista y esté activa
-    const company = await Company.getCompanyByID(companyID);
+    let company;
+    try {
+      company = await Company.getCompanyByID(companyID);
+    } catch (err) {
+      return res.status(404).json({ message: 'Entidad no encontrada o ya eliminada.' });
+    }
+
     if (!company || company.recordStatus === 'Eliminado') {
       return res.status(404).json({ message: 'Entidad no encontrada o ya eliminada.' });
     }
@@ -179,36 +199,59 @@ const deleteCompany = async (req, res) => {
 // Actualizar una entidad receptora por ID
 const patchCompanyController = async (req, res) => {
   try {
-    const companyID = parseInt(req.params.companyID);
-    const requesterID = req.user.id;
-    const userTypeID = req.user.userTypeID;
+    const userID = parseInt(req.params.userID);
     const updateData = req.body;
 
     if (!updateData || Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
     }
 
-    // Verificar existencia de la entidad
-    const company = await Company.getCompanyByID(companyID);
-    if (!company || company.recordStatus === 'Eliminado') {
-      return res.status(404).json({ message: 'Entidad no encontrada o eliminada.' });
+    // Verificar que la entidad exista
+    const [companyRow] = await pool.query(
+      'SELECT * FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+    if (!companyRow || companyRow.length === 0) {
+      return res.status(404).json({ message: 'Entidad receptora no encontrada o ya eliminada.' });
     }
 
-    // Obtener roles
-    const roles = await getUserRoles(requesterID);
-    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
-    const isOwner = userTypeID === 4 && requesterID === company.userID;
+    // Separar campos
+    const userFields = ['email', 'phone'];
+    const userUpdates = {};
+    const companyUpdates = {};
 
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ message: 'No tienes permiso para modificar esta entidad.' });
+    for (const key in updateData) {
+      if (userFields.includes(key)) {
+        userUpdates[key] = updateData[key];
+      } else if (key !== 'recordStatus' && key !== 'status') {
+        companyUpdates[key] = updateData[key];
+      }
     }
 
-    const result = await Company.patchCompany(companyID, updateData);
-    res.status(200).json({ message: 'Entidad actualizada correctamente.', result });
+    // Actualizar tabla Company
+    let companyResult = null;
+    if (Object.keys(companyUpdates).length > 0) {
+      companyResult = await Company.patchCompany(userID, companyUpdates);
+    }
 
+    // Actualizar tabla User
+    let userResult = null;
+    if (Object.keys(userUpdates).length > 0) {
+      const fields = Object.keys(userUpdates).map(field => `${field} = ?`).join(', ');
+      const values = Object.values(userUpdates);
+      values.push(userID);
+      await pool.query(`UPDATE User SET ${fields} WHERE userID = ?`, values);
+      userResult = { message: 'Datos de usuario actualizados' };
+    }
+
+    return res.status(200).json({
+      message: 'Entidad receptora actualizada correctamente',
+      companyResult,
+      userResult
+    });
   } catch (error) {
-    console.error('Error al actualizar entidad:', error.message);
-    res.status(500).json({ message: 'No se pudo actualizar la entidad.', error: error.message });
+    console.error('Error al actualizar parcialmente la entidad receptora:', error.message);
+    res.status(500).json({ message: 'No se pudo actualizar la entidad receptora', error: error.message });
   }
 };
 
@@ -223,12 +266,41 @@ const countCompaniesController = async (req, res) => {
   }
 };
 
+// Actualizar el estado de una entidad receptora por ID
+const updateStatus = async (req, res) => {
+  const { userID } = req.params;
+  const { status } = req.body;
+  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente'];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Estado no válido. Usa: Aceptado, Rechazado o Pendiente.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      'UPDATE Company SET status = ? WHERE userID = ? AND recordStatus = "Activo"',
+      [status, userID]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Empresa no encontrada o eliminada.' });
+    }
+
+    return res.status(200).json({ message: `Status de la empresa actualizado a "${status}" correctamente.` });
+  } catch (error) {
+    console.error('Error al actualizar status de la empresa:', error.message);
+    return res.status(500).json({ message: 'Error interno al actualizar status.', error: error.message });
+  }
+};
+
 module.exports = {
+    getCompanyProfile,
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,
     registerCompany,
     deleteCompany,
     patchCompanyController,
-    countCompaniesController
+    countCompaniesController,
+    updateStatus
 };

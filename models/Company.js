@@ -7,7 +7,6 @@ const createFtpStructure = require('../utils/FtpStructureBuilder');
 const validateCompanyData = require('../utils/validators/ValidateCompanyData');
 const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
-
 // Registra una nueva entidad receptora en la base de datos.
 const registerCompany = async (companyData) => {
     const connection = await pool.getConnection();
@@ -28,7 +27,7 @@ const registerCompany = async (companyData) => {
             rfc, fiscalName, companyName, address, externalNumber,
             interiorNumber, suburb, city, state, zipCode,
             companyPhone, category, areaID, website,
-            companyStatus = 'Activo', status = 'Pendiente',
+            status = 'Pendiente',
             profilePhotoName, profilePhotoBuffer,
             needs, modality, economicSupport
         } = companyData;
@@ -48,14 +47,14 @@ const registerCompany = async (companyData) => {
                 INSERT INTO Company (
                     userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
                     suburb, city, state, zipCode, companyPhone, category, areaID, website,
-                    companyStatus, status, photo, needs, modality, economicSupport
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status, photo, needs, modality, economicSupport
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
     
             await connection.query(insertQuery, [
                 userID, rfc, fiscalName, companyName, address, externalNumber, interiorNumber,
                 suburb, city, state, zipCode, companyPhone, category, areaID, website,
-                companyStatus, status, null, needs, modality, economicSupport
+                status, null, needs, modality, economicSupport
             ]);
     
 
@@ -95,6 +94,18 @@ const registerCompany = async (companyData) => {
     } finally {
         connection.release();
     }
+};
+
+// Obtiene el perfil de la entidad receptora del usuario autenticado.
+const getByUserID = async (userID) => {
+  const query = 'SELECT * FROM Company WHERE userID = ? AND recordStatus = "Activo"';
+  const [rows] = await pool.query(query, [userID]);
+
+  if (rows.length === 0) {
+    throw new Error('Entidad receptora no encontrada o eliminada');
+  }
+
+  return rows[0];
 };
 
 // Busca una entidad receptora por su ID.
@@ -139,11 +150,11 @@ const deleteCompany = async (companyID) => {
         await connection.beginTransaction();
 
         const [rows] = await connection.query(
-            'SELECT userID, companyStatus FROM Company WHERE companyID = ? AND recordStatus = "Activo"',
+            'SELECT userID FROM Company WHERE companyID = ? AND recordStatus = "Activo"',
             [companyID]
         );
 
-        if (rows.length === 0 || rows[0].companyStatus !== 'Activo') {
+        if (rows.length === 0) {
             throw new Error('Solo se pueden eliminar entidades activas');
         }
 
@@ -170,34 +181,17 @@ const deleteCompany = async (companyID) => {
 };
 
 // Actualiza los datos de una entidad receptora por su ID.
-const patchCompany = async (companyID, updateData) => {
-    if (!updateData || Object.keys(updateData).length === 0) {
-        throw new Error("No se proporcionaron campos para actualizar");
-    }
+const patchCompany = async (userID, fieldsToUpdate) => {
+  const keys = Object.keys(fieldsToUpdate);
+  const values = Object.values(fieldsToUpdate);
 
-    const keys = Object.keys(updateData);
-    const values = [];
+  if (keys.length === 0) return;
 
-    const setClause = keys.map(key => {
-        values.push(updateData[key]);
-        return `${key} = ?`;
-    }).join(", ");
+  const setClause = keys.map(key => `${key} = ?`).join(', ');
+  const query = `UPDATE Company SET ${setClause} WHERE userID = ? AND recordStatus = 'Activo'`;
 
-    const query = `
-        UPDATE Company 
-        SET ${setClause} 
-        WHERE companyID = ? AND recordStatus = 'Activo'
-    `;
-
-    values.push(companyID);
-
-    const [result] = await pool.query(query, values);
-
-    if (result.affectedRows === 0) {
-        throw new Error("No se pudo actualizar la entidad o ya fue eliminada");
-    }
-
-    return { message: "Entidad receptora actualizada correctamente" };
+  const [result] = await pool.query(query, [...values, userID]);
+  return result;
 };
 
 // Cuenta el número total de entidades receptoras activas.
@@ -209,6 +203,7 @@ const countCompanies = async () => {
 
 module.exports = {
     registerCompany,
+    getByUserID,
     getCompanyByID,
     getAllCompanies,
     getCompaniesByStatus,

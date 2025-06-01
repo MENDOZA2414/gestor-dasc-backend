@@ -4,6 +4,7 @@ const companyController = require('../controllers/CompanyController');
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
+const checkUserType = require('../middlewares/CheckUserType');
 
 // Obtener todas las entidades receptoras.
 router.get(
@@ -29,6 +30,14 @@ router.get(
   companyController.countCompaniesController
 );
 
+// Obtener el perfil de la entidad receptora del usuario autenticado.
+router.get(
+  '/me',
+  authMiddleware,
+  checkUserType(['company']),
+  companyController.getCompanyProfile
+);
+
 // Obtener una entidad receptora por ID.
 router.get(
     '/:id',
@@ -43,6 +52,14 @@ router.post(
     companyController.registerCompany
 );
 
+// Cambiar el status de una empresa (Aceptado, Rechazado, Pendiente)
+router.patch(
+  '/:userID/status',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  companyController.updateStatus
+);
+
 // Eliminar una entidad receptora por ID.
 router.delete(
   '/:companyID',
@@ -53,8 +70,9 @@ router.delete(
 
 // Actualizar los datos de una entidad receptora por ID.
 router.patch(
-  '/:companyID',
+  '/:userID',
   authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
   companyController.patchCompanyController
 );
 

@@ -440,7 +440,7 @@ exports.patchUserStatusController = async (req, res) => {
           break;
         case 4:
           secondaryTable = 'Company';
-          statusField = 'companyStatus';
+          statusField = 'status';
           break;
         default:
           break;
