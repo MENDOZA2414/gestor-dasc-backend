@@ -4,6 +4,7 @@ const practicePositionController = require('../controllers/PracticePositionContr
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
+const checkUserTypeOrRole = require('../middlewares/CheckUserTypeOrRole');
 
 // Ruta para obtener las vacantes de práctica por ID de entidad
 router.get(
@@ -38,8 +39,16 @@ router.get(
 router.post(
   '/create',
   authMiddleware,
-  checkUserType(['company']),
+  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
   practicePositionController.createPosition
+);
+
+// Cambiar el estatus de aceptacióon o rechazo de una vacante
+router.patch(
+  '/status/:id',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  practicePositionController.patchPositionStatus
 );
 
 // Ruta para actualizar parcialmente una vacante
@@ -49,20 +58,12 @@ router.patch(
   practicePositionController.patchPositionController
 );
 
-// Eliminar vacante
+// Eliminación lógica controlada de vacante y opcionalmente de sus postulaciones
 router.delete(
-  '/:practicePositionID',
+  '/delete/:id',
   authMiddleware,
   checkRole(['SuperAdmin']),
-  practicePositionController.deletePosition
-);
-
-// Eliminar una vacante junto con sus postulaciones
-router.delete(
-  '/eliminar/:id',
-  authMiddleware,
-  checkRole(['SuperAdmin']),
-  practicePositionController.deletePositionAndApplications
+  practicePositionController.deletePositionControlled
 );
 
 module.exports = router;

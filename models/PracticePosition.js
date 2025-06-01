@@ -107,86 +107,74 @@ const getPositionsByStatus = async (status) => {
     return results;
 };
 
-// Eliminación vacante
-const deletePosition = async (practicePositionID) => {
-    const checkStatusQuery = 'SELECT status FROM PracticePosition WHERE practicePositionID = ?';
-    const [result] = await pool.query(checkStatusQuery, [practicePositionID]);
+// Eliminación lógica de la vacante
+const softDelete = async (practicePositionID) => {
+  const [positionRows] = await pool.query(
+    'SELECT recordStatus FROM PracticePosition WHERE practicePositionID = ?',
+    [practicePositionID]
+  );
 
-    if (result.length > 0 && ['Aceptado', 'Cerrado'].includes(result[0].status)) {
-        const updateQuery = 'UPDATE PracticePosition SET recordStatus = "Eliminado" WHERE practicePositionID = ?';
-        await pool.query(updateQuery, [practicePositionID]);
-        return { message: 'Vacante marcada como eliminada' };
-    } else {
-        throw new Error('Solo se pueden eliminar vacantes aceptadas o cerradas');
-    }
+  if (positionRows.length === 0) {
+    throw new Error('La vacante no existe');
+  }
+
+  if (positionRows[0].recordStatus === 'Eliminado') {
+    throw new Error('La vacante ya fue eliminada');
+  }
+
+  const [result] = await pool.query(
+    'UPDATE PracticePosition SET recordStatus = "Eliminado" WHERE practicePositionID = ?',
+    [practicePositionID]
+  );
+
+  return result;
 };
 
-// Actualización parcial de vacante (PATCH)
+
+// Eliminación lógica de postulaciones relacionadas
+const softDeleteApplicationsByPositionID = async (practicePositionID) => {
+  await pool.query(
+    'UPDATE PracticeApplication SET recordStatus = "Eliminado" WHERE practicePositionID = ?',
+    [practicePositionID]
+  );
+};
+
+
+// Actualización parcial de vacante
 const patchPosition = async (practicePositionID, updateData) => {
-    if (!updateData || Object.keys(updateData).length === 0) {
-        throw new Error("No se proporcionaron campos para actualizar");
-    }
+  if (!updateData || Object.keys(updateData).length === 0) {
+    throw new Error("No se proporcionaron campos para actualizar");
+  }
 
-    const validStatuses = ['Pendiente', 'Aceptado', 'Rechazado', 'Inactiva', 'Cerrado'];
+  const keys = Object.keys(updateData);
+  const values = [];
 
-    if (updateData.status && !validStatuses.includes(updateData.status)) {
-        throw new Error("Estatus no válido");
-    }
+  const setClause = keys.map(key => {
+    values.push(updateData[key]);
+    return `${key} = ?`;
+  }).join(", ");
 
-    const keys = Object.keys(updateData);
-    const values = [];
-    const setClause = keys.map(key => {
-        values.push(updateData[key]);
-        return `${key} = ?`;
-    }).join(", ");
+  const query = `
+    UPDATE PracticePosition
+    SET ${setClause}
+    WHERE practicePositionID = ? AND recordStatus = 'Activo'
+  `;
 
-    const query = `
-        UPDATE PracticePosition
-        SET ${setClause}
-        WHERE practicePositionID = ? AND recordStatus = 'Activo'
-    `;
+  values.push(practicePositionID);
 
-    values.push(practicePositionID);
-    const [result] = await pool.query(query, values);
+  const [result] = await pool.query(query, values);
+  if (result.affectedRows === 0) {
+    throw new Error("No se pudo actualizar la vacante o ya fue eliminada");
+  }
 
-    if (result.affectedRows === 0) {
-        throw new Error("No se pudo actualizar la vacante o ya fue eliminada");
-    }
+  // Devolver la vacante actualizada
+  const [updatedRows] = await pool.query(
+    'SELECT * FROM PracticePosition WHERE practicePositionID = ?',
+    [practicePositionID]
+  );
 
-    return { message: "Vacante actualizada correctamente" };
+  return updatedRows[0];
 };
-
-// TODO (2025-01-28): Revisar eliminación en cascada para PracticePosition y StudentApplication
-// Eliminación de vacante y postulaciones
-const deletePositionAndApplications = async (positionID) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const updateApplicationsQuery = `
-            UPDATE StudentApplication 
-            SET recordStatus = 'Eliminado' 
-            WHERE practicePositionID = ? AND recordStatus = 'Activo'
-        `;
-        await connection.query(updateApplicationsQuery, [positionID]);
-
-        const updatePositionQuery = `
-            UPDATE PracticePosition 
-            SET recordStatus = 'Eliminado' 
-            WHERE practicePositionID = ? AND recordStatus = 'Activo'
-        `;
-        await connection.query(updatePositionQuery, [positionID]);
-
-        await connection.commit();
-        return { message: 'Vacante y sus postulaciones marcadas como eliminadas' };
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
-    }
-};
-
 
 module.exports = {
     getPositionByID,
@@ -194,7 +182,7 @@ module.exports = {
     getAllPositions,
     getPositionsByStatus,
     createPosition,
-    deletePosition,
-    patchPosition,
-    deletePositionAndApplications
+    softDelete,
+    softDeleteApplicationsByPositionID,
+    patchPosition
 };

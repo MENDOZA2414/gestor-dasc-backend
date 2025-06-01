@@ -4,6 +4,7 @@ const professionalPracticeController = require('../controllers/ProfessionalPract
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
+const checkUserTypeOrRole = require('../middlewares/CheckUserTypeOrRole');
 
 // Obtener todas las prácticas con filtros opcionales (uso administrativo)
 router.get(
