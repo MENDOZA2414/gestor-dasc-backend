@@ -104,7 +104,6 @@ const registerStudent = async (studentData) => {
   }
 };
 
-
 // Obtener alumnos del asesor autenticado (por su ID)
 const getStudentsByAssessorLogged = async (internalAssessorID) => {
   const query = `
@@ -192,7 +191,6 @@ const getStudentsByStatus = async (status) => {
   const [results] = await pool.query(query, [status]);
   return results;
 };
-
 
 // Eliminar lógicamente un alumno y su usuario vinculado
 const deleteStudentByControlNumber = async (controlNumber) => {

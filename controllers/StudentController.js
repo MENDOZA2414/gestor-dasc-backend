@@ -53,20 +53,24 @@ const registerStudentController = async (req, res) => {
   }
 };
 
+// Obtener alumnos asignados al asesor interno autenticado
 const getStudentsByLoggedAssessor = async (req, res) => {
   try {
-    const requesterID = req.user.id;
-    const roles = await getUserRoles(requesterID);
-    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
+    const userID = req.user.id;
 
-    if (isAdmin) {
-      return res.status(403).json({
-        message: 'Usa el endpoint /students/all si eres administrador.'
-      });
+    // Obtener el internalAssessorID usando el userID
+    const [[assessor]] = await pool.query(
+      'SELECT internalAssessorID FROM InternalAssessor WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (!assessor) {
+      return res.status(404).json({ message: 'No se encontró el asesor interno' });
     }
 
-    const students = await getStudentsByAssessorLogged(requesterID);
+    const students = await Student.getStudentsByAssessorLogged(assessor.internalAssessorID);
     res.status(200).json(students);
+
   } catch (error) {
     console.error('Error en getStudentsByLoggedAssessor:', error.message);
     res.status(500).json({ message: 'Error al obtener los alumnos del asesor autenticado.' });
@@ -122,31 +126,9 @@ const getStudentByControlNumber = async (req, res) => {
 // Obtener alumnos por ID de asesor
 const getStudentsByInternalAssessorID = async (req, res) => {
   const { internalAssessorID } = req.params;
-  const requesterID = req.user.id;
 
   try {
-    // Obtener los roles del usuario autenticado
-    const [rolesRows] = await pool.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
-
-    const roles = rolesRows.map(r => r.roleName);
-
-    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
-
-    if (!isAdmin && parseInt(internalAssessorID) !== requesterID) {
-      return res.status(403).json({ message: 'No puedes consultar alumnos asignados a otro asesor.' });
-    }
-
-    // Aquí va la lógica normal para consultar los alumnos
-    const [students] = await pool.query(
-      'SELECT * FROM Student WHERE internalAssessorID = ? AND recordStatus = "Activo"',
-      [internalAssessorID]
-    );
-
+    const students = await Student.getStudentsByInternalAssessorID(internalAssessorID);
     res.status(200).json(students);
   } catch (error) {
     console.error('Error al obtener alumnos del asesor:', error.message);
@@ -165,7 +147,15 @@ const getAllStudents = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permisos para ver todos los alumnos.' });
     }
 
-    const [students] = await pool.query(`
+    const {
+      career,
+      shift,
+      semester,
+      status,
+      internalAssessorID
+    } = req.query;
+
+    let query = `
       SELECT 
         s.studentID,
         s.controlNumber AS matricula,
@@ -173,11 +163,43 @@ const getAllStudents = async (req, res) => {
         s.career,
         s.semester,
         s.shift,
+        s.status,
         CONCAT(ia.firstName, ' ', ia.firstLastName, ' ', ia.secondLastName) AS internalAssessor
       FROM Student s
       LEFT JOIN InternalAssessor ia ON s.internalAssessorID = ia.internalAssessorID
       WHERE s.recordStatus = 'Activo'
-    `);
+    `;
+
+    const params = [];
+
+    if (career) {
+      query += ' AND s.career = ?';
+      params.push(career);
+    }
+
+    if (shift) {
+      query += ' AND s.shift = ?';
+      params.push(shift);
+    }
+
+    if (semester) {
+      query += ' AND s.semester = ?';
+      params.push(semester);
+    }
+
+    if (status) {
+      query += ' AND s.status = ?';
+      params.push(status);
+    }
+
+    if (internalAssessorID) {
+      query += ' AND s.internalAssessorID = ?';
+      params.push(internalAssessorID);
+    }
+
+    query += ' ORDER BY s.firstName';
+
+    const [students] = await pool.query(query, params);
 
     res.status(200).json(students);
   } catch (error) {
@@ -185,7 +207,6 @@ const getAllStudents = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener los alumnos.' });
   }
 };
-
 
 // Contar alumnos en el sistema
 const countStudents = async (req, res) => {
@@ -247,27 +268,65 @@ const getStudentsByStatus = async (req, res) => {
   }
 };
 
-  
-// PATCH - Actualizar parcialmente los datos de un alumno
+// Actualizar parcialmente los datos de un alumno
 const patchStudentController = async (req, res) => {
   try {
     const controlNumber = req.params.controlNumber;
-    const updateFields = req.body;
+    const updateData = req.body;
 
-    if (!updateFields || Object.keys(updateFields).length === 0) {
+    if (!updateData || Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
     }
 
-    const result = await Student.patchStudent(controlNumber, updateFields);
-    res.status(200).json(result);
+    // Verificar que el alumno exista y esté activo
+    const [rows] = await pool.query(
+      'SELECT studentID, userID FROM Student WHERE controlNumber = ? AND recordStatus = "Activo"',
+      [controlNumber]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Alumno no encontrado o ya eliminado.' });
+    }
+
+    const { studentID, userID } = rows[0];
+
+    const userFields = ['email', 'phone'];
+    const userUpdates = {};
+    const studentUpdates = {};
+
+    for (const key in updateData) {
+      if (userFields.includes(key)) {
+        userUpdates[key] = updateData[key];
+      } else if (!['status', 'recordStatus', 'userID'].includes(key)) {
+        studentUpdates[key] = updateData[key];
+      }
+    }
+
+    let studentResult = null;
+    if (Object.keys(studentUpdates).length > 0) {
+      studentResult = await Student.patchStudent(controlNumber, studentUpdates);
+    }
+
+    let userResult = null;
+    if (Object.keys(userUpdates).length > 0) {
+      const fields = Object.keys(userUpdates).map(f => `${f} = ?`).join(', ');
+      const values = Object.values(userUpdates);
+      values.push(userID);
+      await pool.query(`UPDATE User SET ${fields} WHERE userID = ?`, values);
+      userResult = { message: 'Datos de usuario actualizados' };
+    }
+
+    return res.status(200).json({
+      message: 'Alumno actualizado correctamente',
+      studentResult,
+      userResult
+    });
   } catch (error) {
     console.error("Error al actualizar parcialmente el alumno:", error.message);
     res.status(500).json({ message: "Error al actualizar el alumno", error: error.message });
   }
 };
 
-  
-// Eliminar un alumno por controlNumber
 const deleteStudentByControlNumber = async (req, res) => {
     try {
         const controlNumber = req.params.controlNumber;
@@ -279,6 +338,7 @@ const deleteStudentByControlNumber = async (req, res) => {
     }
 };
 
+// Reasignar asesor interno a un alumno
 const reassignAssessorController = async (req, res) => {
   try {
     const { controlNumber } = req.params;

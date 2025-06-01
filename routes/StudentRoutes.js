@@ -21,7 +21,7 @@ router.get(
   studentController.countStudents
 );
 
-// Ruta para obtener todos los alumnos asignados a un asesor interno
+// Ruta para obtener todos los alumnos
 router.get(
   '/all',
   authMiddleware,
@@ -33,7 +33,6 @@ router.get(
 router.get(
   '/by-assessor',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
   checkUserType(['internalAssessor']),
   studentController.getStudentsByLoggedAssessor
 );
@@ -43,7 +42,6 @@ router.get(
   '/assessor/:internalAssessorID',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
   studentController.getStudentsByInternalAssessorID
 );
 
