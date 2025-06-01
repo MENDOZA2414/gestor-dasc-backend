@@ -42,12 +42,12 @@ const registerExternalAssessor = async (assessorData) => {
     const insertQuery = `
       INSERT INTO ExternalAssessor (
         userID, companyID, firstName, firstLastName, secondLastName,
-        professionID, position, phone, photo, ExternalAssessorStatus
+        professionID, position, phone, photo, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await connection.query(insertQuery, [
       userID, companyID, firstName, firstLastName, secondLastName,
-      professionID, position, phone, null, 'Activo'
+      professionID, position, phone, null, 'Pendiente'
     ]);
 
     const [[{ externalAssessorID }]] = await connection.query("SELECT LAST_INSERT_ID() AS externalAssessorID");

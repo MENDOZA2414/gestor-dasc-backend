@@ -10,10 +10,10 @@ const checkUserType = require('../middlewares/CheckUserType');
 router.post(
   '/register',
   authMiddleware,
-  checkUserType(['company']),
   profileUploadMiddleware,
   externalAssessorController.registerExternalAssessorController
 );
+
 
 // Obtener todos los asesores externos
 router.get(

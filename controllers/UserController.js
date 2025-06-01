@@ -436,7 +436,7 @@ exports.patchUserStatusController = async (req, res) => {
           break;
         case 3:
           secondaryTable = 'ExternalAssessor';
-          statusField = 'externalAssessorStatus';
+          statusField = 'status';
           break;
         case 4:
           secondaryTable = 'Company';

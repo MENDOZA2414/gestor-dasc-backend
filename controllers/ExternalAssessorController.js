@@ -4,20 +4,49 @@ const ExternalAssessor = require('../models/ExternalAssessor');
 const getUserRoles = require('../utils/GetUserRoles');
 const pool = require('../config/db');
 
-// Registrar un asesor externo
+// Registrar un asesor externo (empresa o admin con validación de permisos)
 const registerExternalAssessorController = async (req, res) => {
   try {
-    // Obtener companyID real desde userID autenticado
-    const [[company]] = await pool.query(
-      'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
-      [req.user.id]
-    );
+    const userID = req.user.id;
+    const roles = await getUserRoles(userID);
+    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-    if (!company) {
-      return res.status(404).json({ message: 'Empresa no encontrada para este usuario.' });
+    let companyID;
+
+    if (req.user.userTypeID === 4) {
+      // Usuario tipo empresa: obtener su companyID
+      const [[company]] = await pool.query(
+        'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+        [userID]
+      );
+
+      if (!company) {
+        return res.status(404).json({ message: 'Empresa no encontrada para este usuario.' });
+      }
+
+      companyID = company.companyID;
+
+    } else if (isAdmin) {
+      // Admin o SuperAdmin: debe proporcionar el companyID manualmente
+      if (!req.body.companyID) {
+        return res.status(400).json({ message: 'El campo companyID es obligatorio para administradores.' });
+      }
+
+      const [[company]] = await pool.query(
+        'SELECT companyID FROM Company WHERE companyID = ? AND recordStatus = "Activo"',
+        [req.body.companyID]
+      );
+
+      if (!company) {
+        return res.status(404).json({ message: 'La empresa especificada no existe o fue eliminada.' });
+      }
+
+      companyID = company.companyID;
+
+    } else {
+      // Cualquier otro usuario (como alumnos) no tiene permiso
+      return res.status(403).json({ message: 'No tienes permisos para registrar asesores externos.' });
     }
-
-    const companyID = company.companyID;
 
     const {
       email,
@@ -48,7 +77,7 @@ const registerExternalAssessorController = async (req, res) => {
       professionID: parseInt(professionID),
       position,
       companyID,
-      status: 'Pendiente',
+      status: isAdmin ? 'Aceptado' : 'Pendiente',
       profilePhotoName: req.generatedFileName || null,
       profilePhotoBuffer: req.bufferFile || null
     };
@@ -56,7 +85,9 @@ const registerExternalAssessorController = async (req, res) => {
     const result = await ExternalAssessor.registerExternalAssessor(assessorData);
 
     res.status(201).json({
-      message: 'Asesor registrado. Será activado cuando un administrador apruebe la solicitud.',
+      message: isAdmin
+        ? 'Asesor registrado y activado correctamente.'
+        : 'Asesor registrado. Será activado cuando un administrador apruebe la solicitud.',
       data: result
     });
 
