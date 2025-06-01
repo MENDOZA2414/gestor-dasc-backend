@@ -1,27 +1,24 @@
 const express = require('express');
 const router = express.Router();
+
 const studentController = require('../controllers/StudentController');
 const profileUploadMiddleware = require('../middlewares/ProfileUpload');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
 
-// Ruta para registrar un alumno (pública)
+// ──────── Rutas públicas ────────
+
+// Registro de nuevo alumno (pública)
 router.post(
   '/register',
   profileUploadMiddleware,
   studentController.registerStudentController
 );
 
-// Ruta para contar todos los alumnos (solo Admin/SuperAdmin)
-router.get(
-  '/count',
-  authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  studentController.countStudents
-);
+// ──────── Rutas protegidas ────────
 
-// Ruta para obtener todos los alumnos
+// Obtener todos los alumnos (Admin/SuperAdmin)
 router.get(
   '/all',
   authMiddleware,
@@ -29,7 +26,15 @@ router.get(
   studentController.getAllStudents
 );
 
-// Ruta para obtener los alumnos asignados a un asesor interno Autenticado
+// Obtener cantidad total de alumnos
+router.get(
+  '/count',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.countStudents
+);
+
+// Obtener alumnos asignados al asesor autenticado
 router.get(
   '/by-assessor',
   authMiddleware,
@@ -37,7 +42,7 @@ router.get(
   studentController.getStudentsByLoggedAssessor
 );
 
-// Ruta para obtener los alumnos asignados a un asesor interno
+// Obtener alumnos por ID de asesor interno
 router.get(
   '/assessor/:internalAssessorID',
   authMiddleware,
@@ -45,7 +50,7 @@ router.get(
   studentController.getStudentsByInternalAssessorID
 );
 
-// Ruta para obtener alumnos por estatus y ID de asesor interno
+// Obtener alumnos filtrados por estatus y asesor
 router.get(
   '/',
   authMiddleware,
@@ -53,7 +58,7 @@ router.get(
   studentController.getStudentsByStatusAndAssessorID
 );
 
-// Ruta para obtener un alumnos por estatus
+// Obtener alumnos por estatus general
 router.get(
   '/by-student-status',
   authMiddleware,
@@ -61,22 +66,14 @@ router.get(
   studentController.getStudentsByStatus
 );
 
-// Ruta para obtener un alumno por controlNumber
+// Obtener alumno por número de control
 router.get(
   '/:controlNumber',
   authMiddleware,
   studentController.getStudentByControlNumber
 );
 
-// Ruta para eliminar un alumno por controlNumber
-router.delete(
-  '/:controlNumber',
-  authMiddleware,
-  checkRole(['SuperAdmin']),
-  studentController.deleteStudentByControlNumber
-);
-
-// Ruta para actualizar los datos de un alumno por controlNumber
+// Actualizar alumno por número de control
 router.patch(
   '/:controlNumber',
   authMiddleware,
@@ -92,12 +89,20 @@ router.patch(
   studentController.reassignAssessorController
 );
 
-// Cambiar el estatus del alumno (Aceptado, Rechazado, Pendiente)
+// Cambiar estatus del alumno (Aceptado, Rechazado, Pendiente)
 router.patch(
   '/:controlNumber/status',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
   studentController.updateStatus
+);
+
+// Eliminar lógicamente un alumno por número de control
+router.delete(
+  '/:controlNumber',
+  authMiddleware,
+  checkRole(['SuperAdmin']),
+  studentController.deleteStudentByControlNumber
 );
 
 module.exports = router;
