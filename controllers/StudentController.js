@@ -297,6 +297,33 @@ const reassignAssessorController = async (req, res) => {
   }
 };
 
+// Actualizar el estado de un alumno
+const updateStatus = async (req, res) => {
+  const { controlNumber } = req.params;
+  const { status } = req.body;
+  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente'];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Estado no válido. Usa: Aceptado, Rechazado o Pendiente.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      'UPDATE Student SET status = ? WHERE controlNumber = ? AND recordStatus = "Activo"',
+      [status, controlNumber]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Alumno no encontrado o eliminado.' });
+    }
+
+    return res.status(200).json({ message: `Status del alumno actualizado a "${status}" correctamente.` });
+  } catch (error) {
+    console.error('Error al actualizar status del alumno:', error.message);
+    return res.status(500).json({ message: 'Error interno al actualizar status.', error: error.message });
+  }
+};
+
 // Exportar todas las funciones
 module.exports = {
     registerStudentController,
@@ -309,5 +336,6 @@ module.exports = {
     countStudents,
     patchStudentController,
     deleteStudentByControlNumber,
-    reassignAssessorController
+    reassignAssessorController,
+    updateStatus
 };

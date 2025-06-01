@@ -94,5 +94,12 @@ router.patch(
   studentController.reassignAssessorController
 );
 
+// Cambiar el estatus del alumno (Aceptado, Rechazado, Pendiente)
+router.patch(
+  '/:controlNumber/status',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentController.updateStatus
+);
 
 module.exports = router;
