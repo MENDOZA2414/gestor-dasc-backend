@@ -122,6 +122,13 @@ const getStudentsByAssessorLogged = async (internalAssessorID) => {
   return results;
 };
 
+// Obtener el perfil del estudiante autenticado
+const getStudentByUserID = async (userID) => {
+  const query = 'SELECT * FROM Student WHERE userID = ? AND recordStatus = "Activo"';
+  const [rows] = await pool.query(query, [userID]);
+  return rows[0];
+};
+
 // Obtener un alumno por su controlNumber
 const getStudentByControlNumber = async (controlNumber) => {
     const query = 'SELECT * FROM Student WHERE controlNumber = ? AND recordStatus = "Activo"';
@@ -291,6 +298,7 @@ const reassignAssessor = async (controlNumber, internalAssessorID) => {
 module.exports = {
     registerStudent,
     getStudentsByAssessorLogged,
+    getStudentByUserID,
     getStudentByControlNumber,
     getStudentsByInternalAssessorID,
     getAllStudents,

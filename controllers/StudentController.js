@@ -1,5 +1,4 @@
 const Student = require('../models/Student');
-const { registerStudent, getStudentsByAssessorLogged } = require('../models/Student');
 const getUserRoles = require('../utils/GetUserRoles');
 const pool  = require('../config/db');
 
@@ -28,7 +27,7 @@ const registerStudentController = async (req, res) => {
       profilePhotoBuffer: req.bufferFile || null,
     };
 
-    const result = await registerStudent(studentData, req.generatedFileName, req.bufferFile);
+    const result = await Student.registerStudent(studentData, req.generatedFileName, req.bufferFile);
 
     res.status(201).json(result);
   } catch (error) {
@@ -74,6 +73,23 @@ const getStudentsByLoggedAssessor = async (req, res) => {
   } catch (error) {
     console.error('Error en getStudentsByLoggedAssessor:', error.message);
     res.status(500).json({ message: 'Error al obtener los alumnos del asesor autenticado.' });
+  }
+};
+
+// Obtener el perfil del estudiante autenticado
+const getStudentProfile = async (req, res) => {
+  try {
+    const userID = req.user.id;
+
+    const student = await Student.getStudentByUserID(userID);
+    if (!student || student.recordStatus === 'Eliminado') {
+      return res.status(404).json({ message: 'Alumno no encontrado o eliminado.' });
+    }
+
+    res.status(200).json(student);
+  } catch (error) {
+    console.error('Error al obtener perfil del alumno:', error.message);
+    res.status(500).json({ message: 'Error interno al obtener perfil del alumno.' });
   }
 };
 
@@ -327,6 +343,7 @@ const patchStudentController = async (req, res) => {
   }
 };
 
+// Eliminar un alumno por controlNumber
 const deleteStudentByControlNumber = async (req, res) => {
     try {
         const controlNumber = req.params.controlNumber;
@@ -388,6 +405,7 @@ const updateStatus = async (req, res) => {
 module.exports = {
     registerStudentController,
     getStudentsByLoggedAssessor,
+    getStudentProfile,
     getStudentByControlNumber,
     getStudentsByInternalAssessorID,
     getAllStudents,

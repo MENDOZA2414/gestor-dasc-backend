@@ -66,6 +66,14 @@ router.get(
   studentController.getStudentsByStatus
 );
 
+// Obtener el perfil del estudiante autenticado
+router.get(
+  '/me',
+  authMiddleware,
+  checkUserType(['student']),
+  studentController.getStudentProfile
+);
+
 // Obtener alumno por número de control
 router.get(
   '/:controlNumber',
