@@ -6,6 +6,7 @@ const pool  = require('../config/db');
 const ftp = require("basic-ftp");
 const ftpConfig = require("../config/ftpConfig");
 const getUserRoles = require('../utils/GetUserRoles');
+const { renameCoverLetterFile, createPracticeFromApplication } = require('../services/ApplicationService');
 
 // Registrar una nueva postulación y subir carta de presentación al FTP
 exports.registerApplication = async (req, res) => {
@@ -116,26 +117,6 @@ exports.registerApplication = async (req, res) => {
           error: ftpError.message
         });
       }
-
-      // Actualizar postulación y statusHistory
-      const [[{ statusHistory }]] = await pool.query(`
-        SELECT statusHistory FROM StudentApplication WHERE applicationID = ?
-      `, [existingApplication.applicationID]);
-
-      const today = new Date().toISOString().split("T")[0];
-      const entry = `Pendiente (${today})`;
-
-      await StudentApplication.patchApplication(existingApplication.applicationID, {
-        status: 'Pendiente',
-        coverLetterFileName: fileName,
-        coverLetterFilePath: fullURL,
-        statusHistory: statusHistory ? `${statusHistory}, ${entry}` : entry
-      });
-
-      return res.status(200).json({
-        message: 'Postulación actualizada tras rechazo',
-        filePath: fullURL
-      });
     }
 
     // Verificar existencia previa (rechazados sí se permiten)
@@ -452,142 +433,205 @@ exports.patchApplicationController = async (req, res) => {
   try {
     const requesterID = req.user.id;
     const userTypeID = req.user.userTypeID;
+    const applicationID = parseInt(req.params.applicationID);
+    const updateData = req.body;
 
     // Obtener roles
     const roles = await getUserRoles(requesterID);
-
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-    if (!isAdmin && userTypeID !== 1) {
-      return res.status(403).json({ message: 'Solo asesores internos o administradores pueden modificar postulaciones.' });
-    }
-
-    const applicationID = req.params.applicationID;
-    const updateData = req.body;
-
+    // Validar input
     if (!updateData || Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No se proporcionaron campos para actualizar' });
     }
 
-    if (updateData.status && ["Aceptado", "Rechazado"].includes(updateData.status)) {
-      const [[data]] = await pool.query(`
-        SELECT 
-          SA.studentID,
-          SA.coverLetterFileName,
-          SA.coverLetterFilePath,
-          SA.practicePositionID,
-          S.controlNumber,
-          P.positionName,
-          C.companyID
-        FROM StudentApplication SA
-        JOIN Student S ON SA.studentID = S.studentID
-        JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
-        JOIN Company C ON P.companyID = C.companyID
-        WHERE SA.applicationID = ?
-      `, [applicationID]);      
+    // Validar status permitido
+    const validStatuses = isAdmin
+      ? ['Aceptado', 'Rechazado', 'Pendiente']
+      : ['Aceptado', 'Rechazado'];
 
-      if (!data) {
-        return res.status(404).json({ message: "Datos de postulación no encontrados" });
-      }
+    if (!validStatuses.includes(updateData.status)) {
+      return res.status(400).json({
+        message: `Estado inválido. ${
+          isAdmin
+            ? 'Solo se permite Aceptado, Rechazado o Pendiente.'
+            : 'Solo se permite Aceptado o Rechazado.'
+        }`
+      });
+    }
 
-      // Validar cupo antes de aceptar
-      if (updateData.status === "Aceptado") {
-        const [[{ currentStudents, maxStudents }]] = await pool.query(
-          "SELECT currentStudents, maxStudents FROM PracticePosition WHERE practicePositionID = ?",
-          [data.practicePositionID]
-        );
+    // Obtener la postulación
+    const [[application]] = await pool.query(`
+      SELECT SA.*, S.controlNumber, S.internalAssessorID AS assignedAssessorID,
+             P.positionName, P.startDate, P.endDate, P.externalAssessorID,
+             P.currentStudents, P.maxStudents, P.practicePositionID, C.companyID
+      FROM StudentApplication SA
+      JOIN Student S ON SA.studentID = S.studentID
+      JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+      JOIN Company C ON P.companyID = C.companyID
+      WHERE SA.applicationID = ? AND SA.recordStatus = 'Activo'
+    `, [applicationID]);
 
-        if (currentStudents >= maxStudents) {
-          return res.status(400).json({ message: "La vacante ya alcanzó su máximo de estudiantes aceptados" });
-        }
-      }
+    if (!application) {
+      return res.status(404).json({ message: 'Postulación no encontrada.' });
+    }
 
-      // Renombrar archivo en FTP
-      // Capturar estado original antes del update
-      const [[{ status: originalStatus }]] = await pool.query(`
-        SELECT status FROM StudentApplication WHERE applicationID = ?
-      `, [applicationID]);
-      
-      // Construir rutas de archivos
-      const oldFileName = `carta_presentacion_${data.controlNumber}_${originalStatus}.pdf`;
-      const oldPath = `/practices/company/company_${data.companyID}/documents/${oldFileName}`;
+    // Solo permitir aceptar/rechazar si está Preaceptado (excepto si Admin quiere devolverla a Pendiente)
+    if (updateData.status !== 'Pendiente' && application.status !== 'Preaceptado') {
+      return res.status(400).json({
+        message: 'Solo se puede aceptar o rechazar una postulación que esté en estado Preaceptado.'
+      });
+    }
 
-      const newFileName = `carta_presentacion_${data.controlNumber}_${updateData.status}.pdf`;
-      const newPath = `/practices/company/company_${data.companyID}/documents/${newFileName}`;
+    // Validar que si es asesor interno, sea el que corresponde
+    if (!isAdmin && userTypeID === 1) {
+      const [[internal]] = await pool.query(`
+        SELECT internalAssessorID FROM InternalAssessor
+        WHERE userID = ? AND recordStatus = 'Activo'
+      `, [requesterID]);
 
-      // Intentar renombrar el archivo en FTP
-      try {
-        const client = new ftp.Client();
-        await client.access(ftpConfig);
-        await client.rename(oldPath, newPath);
-        client.close();
-      } catch (ftpError) {
-        console.warn("No se pudo renombrar el archivo en FTP:", ftpError.message);
-        return res.status(500).json({
-          message: "No se pudo renombrar el archivo. La operación fue cancelada.",
-          error: ftpError.message
+      if (!internal || application.assignedAssessorID !== internal.internalAssessorID) {
+        return res.status(403).json({
+          message: 'Solo el asesor interno asignado al alumno puede aceptar o rechazar esta postulación.'
         });
-      }
-
-      // Actualizar campos en la BD
-      updateData.coverLetterFileName = newFileName;
-      updateData.coverLetterFilePath = `https://uabcs.online/practicas${newPath}`;
-
-      // Actualizar el historial
-      const [[{ statusHistory }]] = await pool.query(`
-        SELECT statusHistory FROM StudentApplication WHERE applicationID = ?
-      `, [applicationID]);
-
-      const now = new Date().toISOString().split("T")[0];
-      const newEntry = `${updateData.status} (${now})`;
-      updateData.statusHistory = statusHistory
-        ? `${statusHistory}, ${newEntry}`
-        : newEntry;
-
-      // Crear práctica profesional solo si fue aceptado y no existe ya una
-      if (updateData.status === "Aceptado") {
-        const [[existingPractice]] = await pool.query(`
-          SELECT practiceID FROM ProfessionalPractice
-          WHERE studentID = ? AND recordStatus = 'Activo'
-        `, [data.studentID]);
-
-        if (!existingPractice) {
-          // Obtener fechas de la vacante
-          const [[position]] = await pool.query(`
-            SELECT startDate, endDate, positionName, externalAssessorID
-            FROM PracticePosition
-            WHERE practicePositionID = ?
-          `, [data.practicePositionID]);
-
-          const positionTitle = position?.positionName || 'Practicante';
-          const startDate = position?.startDate || new Date().toISOString().split("T")[0];
-          const endDate = position?.endDate || null;
-
-          await ProfessionalPractice.createPractice({
-            studentID: data.studentID,
-            companyID: data.companyID,
-            externalAssessorID: position?.externalAssessorID || null,
-            positionTitle,
-            startDate,
-            endDate
-          });
-
-          // Aumentar currentStudents en la vacante
-          await pool.query(
-            "UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?",
-            [data.practicePositionID]
-          );
-
-          console.log("Práctica profesional creada automáticamente desde postulación aceptada.");
-        }
       }
     }
 
+    // Validar cupo si se va a aceptar
+    if (updateData.status === 'Aceptado') {
+      if (application.currentStudents >= application.maxStudents) {
+        return res.status(400).json({
+          message: 'La vacante ya alcanzó su máximo de estudiantes aceptados'
+        });
+      }
+    }
+
+    // Reducir currentStudents si regresa a Pendiente
+    if (
+      updateData.status === 'Pendiente' &&
+      ['Preaceptado', 'Aceptado'].includes(application.status)
+    ) {
+      await pool.query(
+        'UPDATE PracticePosition SET currentStudents = GREATEST(currentStudents - 1, 0) WHERE practicePositionID = ?',
+        [application.practicePositionID]
+      );
+    }
+
+    // Renombrar archivo en FTP (solo si el nuevo status no es Rechazado)
+    if (updateData.status !== 'Rechazado') {
+      try {
+          const { newFileName, newFilePath } = await renameCoverLetterFile({
+            controlNumber: application.controlNumber,
+            originalStatus: application.status,
+            newStatus: updateData.status,
+            companyID: application.companyID
+          });
+
+          updateData.coverLetterFileName = newFileName;
+          updateData.coverLetterFilePath = newFilePath;
+        } catch (ftpError) {
+          console.warn("No se pudo renombrar el archivo en FTP:", ftpError.message);
+          return res.status(500).json({
+            message: "No se pudo renombrar el archivo. La operación fue cancelada.",
+            error: ftpError.message
+          });
+        }
+      }
+
+    // Modificar currentStudents solo si renombrado fue exitoso
+    if (updateData.status === 'Aceptado') {
+      const [[existingPractice]] = await pool.query(`
+        SELECT practiceID FROM ProfessionalPractice
+        WHERE studentID = ? AND recordStatus = 'Activo'
+      `, [application.studentID]);
+
+      if (!existingPractice) {
+        await createPracticeFromApplication(
+          application.studentID,
+          application.companyID,
+          application.externalAssessorID || null,
+          application.positionName || 'Practicante',
+          application.startDate || today,
+          application.endDate || null,
+          applicationID
+        );
+
+        // Aumentar el contador solo si no existía práctica
+        await pool.query(
+          'UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?',
+          [application.practicePositionID]
+        );
+      }
+    }
+
+    if (
+      updateData.status === 'Pendiente' &&
+      ['Preaceptado', 'Aceptado'].includes(application.status)
+    ) {
+      await pool.query(
+        'UPDATE PracticePosition SET currentStudents = GREATEST(currentStudents - 1, 0) WHERE practicePositionID = ?',
+        [application.practicePositionID]
+      );
+    }
+
+    if (
+      updateData.status === 'Rechazado' &&
+      ['Preaceptado', 'Aceptado'].includes(application.status)
+    ) {
+      await pool.query(
+        'UPDATE PracticePosition SET currentStudents = GREATEST(currentStudents - 1, 0) WHERE practicePositionID = ?',
+        [application.practicePositionID]
+      );
+    }
+
+    // Historial
+    const today = new Date().toISOString().split('T')[0];
+    const newEntry = `${updateData.status} (${today})`;
+    updateData.statusHistory = application.statusHistory
+      ? `${application.statusHistory}, ${newEntry}`
+      : newEntry;
+
+    // Si se rechaza y antes estaba Preaceptado, reducir currentStudents
+    if (updateData.status === 'Rechazado' && application.status === 'Preaceptado') {
+      await pool.query(
+        'UPDATE PracticePosition SET currentStudents = GREATEST(currentStudents - 1, 0) WHERE practicePositionID = ?',
+        [application.practicePositionID]
+      );
+    }
+
+    // Crear práctica si es Aceptado y aún no existe
+    if (updateData.status === 'Aceptado') {
+      const [[existingPractice]] = await pool.query(`
+        SELECT practiceID FROM ProfessionalPractice
+        WHERE studentID = ? AND recordStatus = 'Activo'
+      `, [application.studentID]);
+
+      if (!existingPractice) {
+        await createPracticeFromApplication(
+          application.studentID,
+          application.companyID,
+          application.externalAssessorID || null,
+          application.positionName || 'Practicante',
+          application.startDate || today,
+          application.endDate || null,
+          applicationID
+        );
+
+        // Aumentar el contador de estudiantes aceptados
+        await pool.query(
+          'UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?',
+          [application.practicePositionID]
+        );
+      }
+    }
+
+    // Actualizar en BD
     const result = await StudentApplication.patchApplication(applicationID, updateData);
     res.status(200).json(result);
+
   } catch (error) {
     console.error('Error al actualizar la postulación:', error.message);
-    res.status(500).json({ message: 'Error en el servidor al actualizar la postulación', error: error.message });
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
   }
 };
 
@@ -596,13 +640,14 @@ exports.updateApplicationStatusByCompany = async (req, res) => {
   try {
     const applicationID = parseInt(req.params.applicationID);
     const { status } = req.body;
-    const requesterID = req.user.id; // userID de la empresa
+    const requesterID = req.user.id;
 
-    if (!['Aceptado', 'Rechazado'].includes(status)) {
-      return res.status(400).json({ message: 'Estado inválido. Solo se permite Aceptado o Rechazado.' });
+    if (!['Preaceptado', 'Rechazado'].includes(status)) {
+      return res.status(400).json({
+        message: 'Estado inválido. Solo se permite Preaceptado o Rechazado desde la empresa.'
+      });
     }
 
-    // Obtener companyID real
     const [[company]] = await pool.query(
       'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
       [requesterID]
@@ -612,11 +657,12 @@ exports.updateApplicationStatusByCompany = async (req, res) => {
       return res.status(404).json({ message: 'Empresa no encontrada.' });
     }
 
-    // Obtener la postulación
     const [[application]] = await pool.query(`
-      SELECT SA.*, P.companyID, P.currentStudents, P.maxStudents
+      SELECT SA.*, P.companyID, P.practicePositionID, P.currentStudents, P.maxStudents,
+             S.controlNumber
       FROM StudentApplication SA
       JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+      JOIN Student S ON SA.studentID = S.studentID
       WHERE SA.applicationID = ? AND SA.recordStatus = 'Activo'
     `, [applicationID]);
 
@@ -628,35 +674,78 @@ exports.updateApplicationStatusByCompany = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para modificar esta postulación.' });
     }
 
-    if (status === 'Aceptado') {
+    // Validar cupo y duplicados al preaceptar
+    if (status === 'Preaceptado') {
       if (application.currentStudents >= application.maxStudents) {
-        return res.status(400).json({ message: 'No se puede aceptar. La vacante ya está llena.' });
+        return res.status(400).json({
+          message: 'No se puede preaceptar. La vacante ya alcanzó su máximo de estudiantes.'
+        });
       }
 
-      // Aumentar el número de estudiantes aceptados
+      // Verificar que el estudiante no tenga otra postulación preaceptada o aceptada
+      const [[alreadyChosen]] = await pool.query(`
+        SELECT applicationID FROM StudentApplication
+        WHERE studentID = ? AND status IN ('Preaceptado', 'Aceptado') AND recordStatus = 'Activo'
+          AND applicationID != ?
+      `, [application.studentID, applicationID]);
+
+      if (alreadyChosen) {
+        return res.status(400).json({
+          message: 'Este estudiante ya tiene otra postulación preaceptada o aceptada. No se puede duplicar.'
+        });
+      }
+
+      // Si pasa validaciones, aumentar el contador
       await pool.query(
         'UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?',
         [application.practicePositionID]
       );
     }
 
-    // Actualizar la postulación
+
+    // Armar historial
     const today = new Date().toISOString().split('T')[0];
     const newEntry = `${status} (${today})`;
     const updatedHistory = application.statusHistory
       ? `${application.statusHistory}, ${newEntry}`
       : newEntry;
 
-    await pool.query(`
-      UPDATE StudentApplication
-      SET status = ?, statusHistory = ?
-      WHERE applicationID = ?
-    `, [status, updatedHistory, applicationID]);
+    // Preparar objeto para actualizar
+    const updateData = {
+      status,
+      statusHistory: updatedHistory
+    };
 
-    res.status(200).json({ message: `Postulación actualizada a ${status}.` });
+    // Renombrar el archivo en FTP
+    try {
+      const { newFileName, newFilePath } = await renameCoverLetterFile({
+        controlNumber: application.controlNumber,
+        originalStatus: application.status,
+        newStatus: status,
+        companyID: application.companyID
+      });
+
+      updateData.coverLetterFileName = newFileName;
+      updateData.coverLetterFilePath = newFilePath;
+    } catch (ftpError) {
+      console.warn("Error renombrando archivo en FTP:", ftpError.message);
+    }
+
+    // Armar SET y valores para query
+    const keys = Object.keys(updateData);
+    const values = keys.map(k => updateData[k]);
+    const setClause = keys.map(k => `${k} = ?`).join(', ');
+    values.push(applicationID);
+
+    await pool.query(
+      `UPDATE StudentApplication SET ${setClause} WHERE applicationID = ?`,
+      values
+    );
+
+    return res.status(200).json({ message: `Postulación actualizada a ${status}.` });
 
   } catch (error) {
     console.error('Error actualizando estado de postulación:', error.message);
-    res.status(500).json({ message: 'Error del servidor', error: error.message });
+    return res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
 };

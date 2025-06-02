@@ -70,12 +70,11 @@ router.get(
 router.patch(
   '/update/:applicationID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
   studentApplicationController.patchApplicationController
 );
 
-// La empresa actualiza el estado de una postulación que le pertenece
+// La empresa actualiza el estado de una postulación que le pertenece a Rechazado o Preaceptado
 router.patch(
   '/status/:applicationID',
   authMiddleware,

@@ -81,38 +81,44 @@ const saveApplication = async ({ studentID, practicePositionID, coverLetterFileN
 // Actualizar una postulación existente
 const patchApplication = async (applicationID, updateData) => {
   if (!updateData || Object.keys(updateData).length === 0) {
-      throw new Error("No se proporcionaron campos para actualizar");
+    throw new Error("No se proporcionaron campos para actualizar");
   }
 
-  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente'];
+  const validStatuses = ['Aceptado', 'Rechazado', 'Pendiente', 'Preaceptado'];
 
   if (updateData.status && !validStatuses.includes(updateData.status)) {
-      throw new Error("Estatus de postulación no válido");
+    throw new Error("Estatus de postulación no válido");
   }
 
   if (updateData.coverLetterFileName === "") updateData.coverLetterFileName = null;
   if (updateData.coverLetterFilePath === "") updateData.coverLetterFilePath = null;
 
+  // Verificar que exista la postulación antes de actualizar
+  const [[existing]] = await pool.query(
+    'SELECT applicationID FROM StudentApplication WHERE applicationID = ? AND recordStatus = "Activo"',
+    [applicationID]
+  );
+
+  if (!existing) {
+    throw new Error("La postulación no existe o fue eliminada");
+  }
+
   const keys = Object.keys(updateData);
   const values = [];
 
   const setClause = keys.map(key => {
-      values.push(updateData[key]);
-      return `${key} = ?`;
+    values.push(updateData[key]);
+    return `${key} = ?`;
   }).join(", ");
 
   const query = `
-      UPDATE StudentApplication
-      SET ${setClause}
-      WHERE applicationID = ? AND recordStatus = 'Activo'
+    UPDATE StudentApplication
+    SET ${setClause}
+    WHERE applicationID = ? AND recordStatus = 'Activo'
   `;
 
   values.push(applicationID);
   const [result] = await pool.query(query, values);
-
-  if (result.affectedRows === 0) {
-      throw new Error("No se pudo actualizar la postulación o ya fue eliminada");
-  }
 
   return { message: "Postulación actualizada correctamente" };
 };
@@ -146,11 +152,39 @@ const getApplicationsByCompanyID = async (companyID) => {
   return results;
 };
 
+// Obtener datos completos de una postulación por ID
+const getFullApplicationData = async (applicationID, connection = pool) => {
+  const [rows] = await connection.query(`
+    SELECT 
+      SA.applicationID,
+      SA.studentID,
+      SA.practicePositionID,
+      SA.coverLetterFileName,
+      SA.coverLetterFilePath,
+      SA.statusHistory,
+      S.controlNumber,
+      P.companyID,
+      P.currentStudents,
+      P.maxStudents,
+      P.positionName,
+      P.startDate,
+      P.endDate,
+      P.externalAssessorID
+    FROM StudentApplication SA
+    JOIN Student S ON SA.studentID = S.studentID
+    JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+    WHERE SA.applicationID = ? AND SA.recordStatus = 'Activo'
+  `, [applicationID]);
+
+  return rows.length > 0 ? rows[0] : null;
+}; 
+
 module.exports = {
     getApplicationsByPositionID,
     getCoverLetterByID,
     getApplicationsByStudentID,
     saveApplication,
     patchApplication,
-    getApplicationsByCompanyID
+    getApplicationsByCompanyID,
+    getFullApplicationData
 };
