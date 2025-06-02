@@ -8,7 +8,7 @@ const checkRole = require('../middlewares/CheckRole');
 router.get('/', authMiddleware, checkRole(['Admin', 'SuperAdmin']), async (req, res) => {
   const { studentID, documentID } = req.query;
 
-  let query = `SELECT * FROM Audit WHERE table = 'StudentDocumentation'`;
+  let query = `SELECT * FROM Audit WHERE tableName = 'StudentDocumentation'`;
   const params = [];
 
   if (studentID) {

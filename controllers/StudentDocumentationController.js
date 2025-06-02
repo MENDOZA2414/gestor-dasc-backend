@@ -352,8 +352,22 @@ exports.markDocumentAsInReview = async (req, res) => {
       return res.status(400).json({ message: 'El documento no está en estado Pendiente o no existe' });
     }
 
+    const userID = req.user.id;
+
+    // Obtener studentID real
+    const [[studentRow]] = await pool.query(
+      'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (!studentRow) {
+      return res.status(404).json({ message: 'Estudiante no encontrado' });
+    }
+
+    const studentID = studentRow.studentID;
+
     // Validar que el documento pertenezca al estudiante autenticado
-    if (document.studentID !== requesterID) {
+    if (document.studentID !== studentID) {
       return res.status(403).json({ message: 'No puedes modificar un documento que no te pertenece.' });
     }
 

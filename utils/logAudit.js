@@ -11,12 +11,12 @@ const pool = require('../config/db');
  * @param {number} [data.documentID] - (Opcional) ID del documento afectado
  * @param {number} [data.studentID] - (Opcional) ID del estudiante afectado
  */
-const logAudit = async ({ table, action, userID, userType, details, documentID = null, studentID = null }) => {
+const logAudit = async ({ tableName, action, userID, userType, details, documentID = null, studentID = null }) => {
   const query = `
-    INSERT INTO Audit (table, action, userID, userType, details, documentID, studentID)
+    INSERT INTO Audit (tableName, action, userID, userType, details, documentID, studentID)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
-  await pool.query(query, [table, action, userID, userType, details, documentID, studentID]);
+  await pool.query(query, [tableName, action, userID, userType, details, documentID, studentID]);
 };
 
 module.exports = logAudit;
