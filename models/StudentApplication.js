@@ -179,6 +179,20 @@ const getFullApplicationData = async (applicationID, connection = pool) => {
   return rows.length > 0 ? rows[0] : null;
 }; 
 
+// Verificar si ya existe una postulación activa para una vacante (excluyendo rechazadas)
+const verifyStudentApplication = async (studentID, practicePositionID) => {
+  const [rows] = await pool.query(`
+    SELECT applicationID 
+    FROM StudentApplication 
+    WHERE studentID = ? 
+      AND practicePositionID = ?
+      AND status != 'Rechazado'
+      AND recordStatus = 'Activo'
+  `, [studentID, practicePositionID]);
+
+  return rows.length > 0;
+};
+
 module.exports = {
     getApplicationsByPositionID,
     getCoverLetterByID,
@@ -186,5 +200,6 @@ module.exports = {
     saveApplication,
     patchApplication,
     getApplicationsByCompanyID,
-    getFullApplicationData
+    getFullApplicationData,
+    verifyStudentApplication
 };

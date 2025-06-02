@@ -4,10 +4,13 @@ const progressSteps = [
   { step: 1, type: 'CartaPresentacion' },
   { step: 2, type: 'CartaAceptacion' },
   { step: 3, type: 'CartaIMSS' },
-  { step: 4, type: 'ReporteI' },
-  { step: 5, type: 'ReporteII' },
-  { step: 6, type: 'ReporteFinal' },
-  { step: 7, type: 'CartaLiberacion' }
+  { step: 4, type: 'CartaCompromiso' },
+  { step: 5, type: 'Reporte I' },
+  { step: 6, type: 'Reporte II' },
+  { step: 7, type: 'Reporte Final' },
+  { step: 8, type: 'CuestionarioSatisfaccion' },
+  { step: 9, type: 'CartaTerminacion' },
+  { step: 10, type: 'InformeFinal' }
 ];
 
 // Devuelve el tipo de documento que le toca subir al alumno

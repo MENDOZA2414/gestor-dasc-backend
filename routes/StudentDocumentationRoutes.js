@@ -4,6 +4,9 @@ const authMiddleware = require('../middlewares/AuthMiddleware');
 const studentDocumentationController = require('../controllers/StudentDocumentationController');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
+const checkUserTypeOrRole = require('../middlewares/CheckUserTypeOrRole');
+const validateDocumentFlow = require('../middlewares/ValidateDocumentFlow');
+const validateDocumentApproval = require('../middlewares/ValidateDocumentApproval');
 
 // Obtener documentos por estudiante y estatus
 router.get(
@@ -33,11 +36,11 @@ router.get(
 );
 
 // Aprobar un documento
-router.post(
+router.patch(
   '/approve',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
+  validateDocumentApproval,
   studentDocumentationController.approveDocument
 );
 
@@ -55,6 +58,7 @@ router.patch(
   '/review/:documentID',
   authMiddleware,
   checkUserType(['student']),
+  validateDocumentFlow,
   studentDocumentationController.markDocumentAsInReview
 );
 

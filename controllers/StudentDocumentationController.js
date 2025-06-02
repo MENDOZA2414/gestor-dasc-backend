@@ -176,85 +176,51 @@ exports.approveDocument = async (req, res) => {
   try {
     const { documentID } = req.body;
     const requesterID = req.user.id;
-    const userTypeID = req.user.userTypeID;
 
-    if (!documentID) {
-      return res.status(400).json({ message: 'Falta el documentID en el body' });
-    }
-
-    const doc = await StudentDocumentation.getDocumentByID(documentID);
-
-    if (!doc) {
-      return res.status(404).json({ message: 'Documento no encontrado' });
-    }
-
-    if (doc.status !== 'EnRevision') {
-      return res.status(400).json({ message: 'Solo se pueden aprobar documentos en estado EnRevisión' });
-    }
-
-    // Obtener roles del usuario
-    const [rolesRows] = await pool.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
-
-    const roles = rolesRows.map(r => r.roleName);
-    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
-
-    // Bloquear usuarios no autorizados
-    if (userTypeID !== 1 && !isAdmin) {
-      return res.status(403).json({ message: 'Solo asesores internos o administradores pueden aprobar documentos.' });
-    }
-
-    // Si es asesor interno, validar asignación del alumno
-    if (userTypeID === 1 && !isAdmin) {
-      const [students] = await pool.query(
-        `SELECT internalAssessorID FROM Student WHERE studentID = ?`,
-        [doc.studentID]
-      );
-
-      const assignedAssessorID = students[0]?.internalAssessorID;
-      if (assignedAssessorID !== requesterID) {
-        return res.status(403).json({ message: 'No puedes aprobar documentos de un alumno no asignado a ti.' });
-      }
-    }
+    // Documento ya validado
+    const { studentID, documentType, fileName, filePath } = req.document;
 
     // Aprobar el documento
     const result = await StudentDocumentation.approveDocument(
       documentID,
-      doc.fileName,
-      doc.filePath
+      fileName,
+      filePath
     );
 
+    // Auditoría
     await logAudit({
       table: 'StudentDocumentation',
       action: 'Aprobacion',
       userID: requesterID,
-      userType: isAdmin ? 'admin' : 'internalAssessor',
-      details: `Documento aprobado: ${doc.fileName}`,
-      documentID: documentID,
-      studentID: doc.studentID
+      userType: req.user.roleLabel || 'internalAssessor',
+      details: `Documento aprobado: ${fileName}`,
+      documentID,
+      studentID
     });
 
-    // Actualizar progreso si es un reporte relevante
-    const docType = doc.documentType;
-    const studentID = doc.studentID;
+    // Actualizar progreso
+    const progressSteps = {
+      'CartaPresentacion': 1,
+      'CartaAceptacion': 2,
+      'CartaIMSS': 3,
+      'CartaCompromiso': 4,
+      'Reporte I': 5,
+      'Reporte II': 6,
+      'Reporte Final': 7,
+      'CuestionarioSatisfaccion': 8,
+      'CartaTerminacion': 9,
+      'InformeFinal': 10
+    };
 
-    if (docType === 'Reporte I') {
-      await updateProgressStep(studentID, 1);
-    } else if (docType === 'Reporte II') {
-      await updateProgressStep(studentID, 2);
-    } else if (docType === 'Reporte Final') {
-      await updateProgressStep(studentID, 3);
+    if (progressSteps[documentType]) {
+      await updateProgressStep(studentID, progressSteps[documentType]);
     }
 
-    res.status(200).send(result);
+    res.status(200).json(result);
 
   } catch (err) {
     console.error('Error al aprobar documento:', err.message);
-    res.status(500).send({ message: 'Error al aprobar documento', error: err.message });
+    res.status(500).json({ message: 'Error al aprobar documento', error: err.message });
   }
 };
 
@@ -338,38 +304,9 @@ exports.markDocumentAsInReview = async (req, res) => {
   try {
     const { documentID } = req.params;
     const requesterID = req.user.id;
-    const userType = req.user.userTypeID;
 
-    // Validar tipo de usuario
-    if (userType !== 2) {
-      return res.status(403).json({ message: 'Solo los estudiantes pueden enviar documentos a revisión' });
-    }
-
-    // Obtener documento
+    // Ya validado por el middleware: existencia, estado, propiedad y flujo
     const document = await StudentDocumentation.getDocumentByID(documentID);
-
-    if (!document || document.status !== 'Pendiente') {
-      return res.status(400).json({ message: 'El documento no está en estado Pendiente o no existe' });
-    }
-
-    const userID = req.user.id;
-
-    // Obtener studentID real
-    const [[studentRow]] = await pool.query(
-      'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
-      [userID]
-    );
-
-    if (!studentRow) {
-      return res.status(404).json({ message: 'Estudiante no encontrado' });
-    }
-
-    const studentID = studentRow.studentID;
-
-    // Validar que el documento pertenezca al estudiante autenticado
-    if (document.studentID !== studentID) {
-      return res.status(403).json({ message: 'No puedes modificar un documento que no te pertenece.' });
-    }
 
     // Marcar como EnRevision
     const result = await StudentDocumentation.markAsInReview(
@@ -377,21 +314,15 @@ exports.markDocumentAsInReview = async (req, res) => {
       document.fileName,
       document.filePath
     );
-    
-    const doc = await StudentDocumentation.getDocumentByID(documentID);
-
-    if (!doc) {
-      return res.status(404).json({ message: 'Documento no encontrado para auditoría.' });
-    }
 
     await logAudit({
       table: 'StudentDocumentation',
       action: 'Envio',
-      userID: req.user.id,
+      userID: requesterID,
       userType: 'student',
-      details: `Documento enviado a revisión: ${doc.fileName}`,
+      details: `Documento enviado a revisión: ${document.fileName}`,
       documentID: documentID,
-      studentID: doc.studentID
+      studentID: document.studentID
     });
 
     res.status(200).json(result);

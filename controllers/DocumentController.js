@@ -62,42 +62,44 @@ function getInitialStatusByUserType(userType) {
 
 // Stream de un documento PDF desde el FTP
 const streamDocumentByPath = async (req, res) => {
-  const { path, download } = req.query;
+  const { path: filePath, download } = req.query;
 
-  if (!path) {
-    return res.status(400).json({ error: "La ruta del archivo es requerida (query param 'path')." });
+  if (!filePath) {
+    return res.status(400).json({ message: "Falta el parámetro 'path'" });
   }
 
-  // Seguridad básica: prevenir acceso fuera de /practices
-  if (path.includes("..") || path.startsWith("/")) {
-    return res.status(400).json({ error: "Ruta de archivo no válida." });
-  }
+  const fullFtpPath = path.posix.join("/", filePath);
 
   const client = new ftp.Client();
+  client.ftp.verbose = false;
+
   try {
     await client.access(ftpConfig);
 
-    const fileName = path.split("/").pop();
-    const disposition = download === "true" ? "attachment" : "inline";
-
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `${disposition}; filename="${fileName}"`);
 
-    const fullFtpPath = `/practices/${path}`;
-    console.log(`Streaming archivo desde: ${fullFtpPath}`);
+    // Solo si se desea forzar descarga
+    if (download === "true") {
+    const original = path.basename(fullFtpPath);
 
-    await client.downloadTo(res, fullFtpPath);
-  } catch (err) {
-    if (err.code === 550) {
-      // Error 550 en FTP = archivo no encontrado
-      return res.status(404).json({ error: "Archivo no encontrado en el servidor." });
+      // Limpiar nombre (eliminar UUID y mantener solo el tipo + estado + fecha)
+      const cleanName = original
+        .replace(/_[a-f0-9\-]{36}\.pdf$/, ".pdf"); // Elimina el UUID
+
+      res.setHeader("Content-Disposition", `attachment; filename="${cleanName}"`);
     }
-    console.error("Error al hacer stream del documento:", err.message);
-    res.status(500).json({ error: "No se pudo obtener el documento" });
+
+    // Crear stream desde el FTP hacia la respuesta HTTP
+    await client.downloadTo(res, fullFtpPath);
+
+  } catch (err) {
+    console.error("Error al descargar desde FTP:", err.message);
+    res.status(500).json({ message: "Error al acceder o enviar el documento", error: err.message });
   } finally {
     client.close();
   }
 };
+
 
 // Subir un documento general
 const uploadGeneralDocument = async (req, res) => {
