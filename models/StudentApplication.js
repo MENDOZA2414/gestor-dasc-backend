@@ -23,44 +23,39 @@ const getApplicationsByPositionID = async (positionID) => {
 
 // Obtener la ruta y nombre de la carta de presentación por ID de postulación
 const getCoverLetterByID = async (applicationID) => {
-    const query = `
-      SELECT coverLetterFileName, coverLetterFilePath
-      FROM StudentApplication
-      WHERE applicationID = ? AND recordStatus = 'Activo'
-    `;
-    const [results] = await pool.query(query, [applicationID]);
-    return results.length > 0 ? results[0] : null;
-};
-
-// Verificar si un estudiante ya se ha postulado a una vacante específica
-const verifyStudentApplication = async (studentID, positionID) => {
   const query = `
-    SELECT COUNT(*) as count
-    FROM StudentApplication
-    WHERE studentID = ? AND practicePositionID = ?
-      AND recordStatus = 'Activo'
-      AND status != 'Rechazado'
+    SELECT 
+      SA.coverLetterFileName, 
+      SA.coverLetterFilePath, 
+      SA.studentID, 
+      P.companyID
+    FROM StudentApplication SA
+    JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+    WHERE SA.applicationID = ? AND SA.recordStatus = 'Activo'
   `;
-  const [results] = await pool.query(query, [studentID, positionID]);
-  return results[0].count > 0;
+  const [results] = await pool.query(query, [applicationID]);
+  return results.length > 0 ? results[0] : null;
 };
-
 
 // Obtener todas las postulaciones realizadas por un estudiante
 const getApplicationsByStudentID = async (studentID) => {
-    const query = `
-      SELECT 
-        applicationID,
-        practicePositionID,
-        status,
-        coverLetterFileName,
-        coverLetterFilePath,
-        timestamp
-      FROM StudentApplication
-      WHERE studentID = ? AND recordStatus = 'Activo'
-    `;
-    const [results] = await pool.query(query, [studentID]);
-    return results;
+  const query = `
+    SELECT 
+      A.applicationID,
+      A.practicePositionID,
+      A.status,
+      A.coverLetterFileName,
+      A.coverLetterFilePath,
+      A.timestamp,
+      P.positionName AS positionTitle,
+      C.companyName
+    FROM StudentApplication A
+    INNER JOIN PracticePosition P ON A.practicePositionID = P.practicePositionID
+    INNER JOIN Company C ON P.companyID = C.companyID
+    WHERE A.studentID = ? AND A.recordStatus = 'Activo'
+  `;
+  const [results] = await pool.query(query, [studentID]);
+  return results;
 };
 
 // Registrar una nueva postulación con archivo en FTP
@@ -154,7 +149,6 @@ const getApplicationsByCompanyID = async (companyID) => {
 module.exports = {
     getApplicationsByPositionID,
     getCoverLetterByID,
-    verifyStudentApplication,
     getApplicationsByStudentID,
     saveApplication,
     patchApplication,

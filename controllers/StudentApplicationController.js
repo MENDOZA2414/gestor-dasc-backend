@@ -11,22 +11,22 @@ const getUserRoles = require('../utils/GetUserRoles');
 exports.registerApplication = async (req, res) => {
   try {
     const { practicePositionID } = req.body;
-    const studentID = req.user.id;
+    // Obtener studentID y controlNumber desde la tabla Student (a partir del userID autenticado)
+    const [[studentRow]] = await pool.query(
+      'SELECT studentID, controlNumber FROM Student WHERE userID = ?',
+      [req.user.id]
+    );
+
+    if (!studentRow) {
+      return res.status(404).json({ message: 'No se encontró información del estudiante.' });
+    }
+
+    const studentID = studentRow.studentID;
+    const controlNumber = studentRow.controlNumber;
 
     if (req.user.userTypeID !== 2) {
       return res.status(403).json({ message: 'Solo los estudiantes pueden registrar postulaciones.' });
     }
-
-    const [[studentInfo]] = await pool.query(
-      'SELECT controlNumber FROM Student WHERE userID = ?',
-      [studentID]
-    );
-
-    if (!studentInfo) {
-      return res.status(404).json({ message: 'No se encontró información del estudiante.' });
-    }
-
-    const controlNumber = studentInfo.controlNumber;
 
     // Verificar que la vacante esté activa
     const [[vacanteData]] = await pool.query(`
@@ -211,19 +211,52 @@ exports.registerApplication = async (req, res) => {
 
 // Obtener todas las postulaciones por ID de vacante
 exports.getApplicationsByPositionID = async (req, res) => {
-    try {
-      const positionID = req.params.positionID;
-      const applications = await StudentApplication.getApplicationsByPositionID(positionID);
+  try {
+    const positionID = parseInt(req.params.positionID);
+    const requesterID = req.user.id;
+    const userTypeID = req.user.userTypeID;
 
-      if (applications.length > 0) {
-        res.status(200).json(applications);
-      } else {
-        res.status(404).json({ message: 'No hay postulaciones registradas para esta vacante' });
+    // Si el usuario es una empresa, verificar que la vacante sea suya
+    if (userTypeID === 4) {  // 4 = company
+      const [[vacante]] = await pool.query(
+        'SELECT companyID FROM PracticePosition WHERE practicePositionID = ?',
+        [positionID]
+      );
+
+      if (!vacante) {
+        return res.status(404).json({ message: 'La vacante no existe.' });
       }
-    } catch (error) {
-      console.error('Error en la consulta de postulaciones:', error.message);
-      res.status(500).json({ message: 'Error en el servidor', error: error.message });
+
+      if (userTypeID === 4) {
+        const [[empresa]] = await pool.query(
+          'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+          [requesterID]
+        );
+
+        if (!empresa) {
+          return res.status(404).json({ message: 'No se encontró la empresa autenticada.' });
+        }
+
+        const myCompanyID = empresa.companyID;
+
+        if (vacante.companyID !== myCompanyID) {
+          return res.status(403).json({ message: 'No puedes acceder a postulaciones de vacantes que no te pertenecen.' });
+        }
+      }
     }
+
+    const applications = await StudentApplication.getApplicationsByPositionID(positionID);
+
+    if (applications.length > 0) {
+      res.status(200).json(applications);
+    } else {
+      res.status(404).json({ message: 'No hay postulaciones registradas para esta vacante' });
+    }
+
+  } catch (error) {
+    console.error('Error en la consulta de postulaciones:', error.message);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  }
 };
 
 // Obtener el nombre y la URL de la carta de presentación por ID de postulación
@@ -250,14 +283,29 @@ exports.getCoverLetterByID = async (req, res) => {
     const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-    // Validaciones de acceso
     if (!isAdmin) {
-      if (userTypeID === 2 && data.studentID !== requesterID) {
-        return res.status(403).json({ message: 'No puedes acceder a la carta de otro estudiante.' });
+      if (userTypeID === 2) {
+        // Obtener studentID real desde userID
+        const [[student]] = await pool.query(
+          'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+          [requesterID]
+        );
+
+        if (!student || student.studentID !== data.studentID) {
+          return res.status(403).json({ message: 'No puedes acceder a la carta de otro estudiante.' });
+        }
       }
 
-      if (userTypeID === 4 && data.companyID !== requesterID) {
-        return res.status(403).json({ message: 'No puedes acceder a cartas de vacantes que no pertenecen a tu empresa.' });
+      if (userTypeID === 4) {
+        // Obtener companyID real desde userID
+        const [[company]] = await pool.query(
+          'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+          [requesterID]
+        );
+
+        if (!company || company.companyID !== data.companyID) {
+          return res.status(403).json({ message: 'No puedes acceder a cartas de vacantes que no pertenecen a tu empresa.' });
+        }
       }
     }
 
@@ -267,33 +315,63 @@ exports.getCoverLetterByID = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Error al obtener carta de presentación:', error.message);
     res.status(500).json({ message: 'Error en el servidor: ' + error.message });
   }
 };
 
-// Verificar si un estudiante ya se ha postulado a una vacante específica
-exports.verifyStudentApplication = async (req, res) => {
+// Obtener todas las postulaciones del estudiante autenticado
+exports.getApplicationsByLoggedStudent = async (req, res) => {
   try {
-    const { studentID, positionID } = req.params;
-    const requesterID = req.user.id;
-    const userTypeID = req.user.userTypeID;
+    const userID = req.user.id;
 
-    // Solo estudiantes pueden usar esta ruta
-    if (userTypeID !== 2) {
-      return res.status(403).json({ error: 'Solo los estudiantes pueden verificar sus postulaciones.' });
+    // Obtener el studentID a partir del userID
+    const [[student]] = await pool.query(
+      'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: 'Estudiante no encontrado.' });
     }
 
-    // El estudiante solo puede consultar su propia postulación
-    if (parseInt(studentID) !== requesterID) {
-      return res.status(403).json({ error: 'No tienes permiso para consultar postulaciones de otro estudiante.' });
-    }
+    const applications = await StudentApplication.getApplicationsByStudentID(student.studentID);
 
-    const hasApplied = await StudentApplication.verifyStudentApplication(studentID, positionID);
-    res.status(200).json({ applied: hasApplied });
+    res.status(200).json(applications);
 
   } catch (error) {
-    console.error('Error verificando postulación:', error.message);
-    res.status(500).json({ error: 'Error verificando postulación' });
+    console.error('Error al obtener postulaciones del estudiante:', error.message);
+    res.status(500).json({ message: 'Error del servidor', error: error.message });
+  }
+};
+
+// Obtener todas las postulaciones de la empresa autenticada
+exports.getApplicationsByMyCompany = async (req, res) => {
+  try {
+    const requesterID = req.user.id; // userID de la empresa
+
+    const [[company]] = await pool.query(
+      'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+      [requesterID]
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'No se encontró la empresa asociada al usuario logueado' });
+    }
+
+    const companyID = company.companyID;
+
+    const applications = await StudentApplication.getApplicationsByCompanyID(companyID);
+
+    if (applications.length === 0) {
+      return res.status(404).json({ message: 'No hay postulaciones registradas para tu empresa' });
+    }
+
+    res.status(200).json(applications);
+
+  } catch (error) {
+    console.error('Error al obtener postulaciones de empresa logueada:', error.message);
+    res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
 };
 
@@ -335,34 +413,38 @@ exports.getApplicationsByStudentID = async (req, res) => {
 exports.getApplicationsByCompanyID = async (req, res) => {
   try {
     const companyID = parseInt(req.params.companyID);
-    const requesterID = req.user.id;
-    const userTypeID = req.user.userTypeID;
-
-    // Obtener roles
-    const [rolesRows] = await pool.query(`
-      SELECT r.roleName
-      FROM UserRole ur
-      JOIN Role r ON ur.roleID = r.roleID
-      WHERE ur.userID = ?
-    `, [requesterID]);
-
-    const roles = rolesRows.map(r => r.roleName);
-    const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
-
-    // Si no es admin, debe ser empresa y solo acceder a su propio companyID
-    if (!isAdmin) {
-      if (userTypeID !== 4 || requesterID !== companyID) {
-        return res.status(403).json({ error: 'No tienes permiso para consultar estas postulaciones.' });
-      }
+    if (isNaN(companyID)) {
+      return res.status(400).json({ message: 'ID de empresa inválido' });
     }
 
     const applications = await StudentApplication.getApplicationsByCompanyID(companyID);
+
+    if (applications.length === 0) {
+      return res.status(404).json({ message: 'No hay postulaciones registradas para esta empresa' });
+    }
+
     res.status(200).json(applications);
 
   } catch (error) {
     console.error('Error obteniendo postulaciones por empresa:', error.message);
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
+};
+
+// Obtener todas las postulaciones por estado (Aceptado, Rechazado, Pendiente)
+exports.getApplicationsByStatus = async (req, res) => {
+  const status = req.params.status;
+
+  if (!['Aceptado', 'Rechazado', 'Pendiente'].includes(status)) {
+    return res.status(400).json({ message: 'Estado inválido.' });
+  }
+
+  const [results] = await pool.query(`
+    SELECT * FROM StudentApplication
+    WHERE status = ? AND recordStatus = 'Activo'
+  `, [status]);
+
+  res.status(200).json(results);
 };
 
 // Actualizar una postulación existente (aceptar o rechazar con renombrado y validación de cupo)
@@ -506,5 +588,75 @@ exports.patchApplicationController = async (req, res) => {
   } catch (error) {
     console.error('Error al actualizar la postulación:', error.message);
     res.status(500).json({ message: 'Error en el servidor al actualizar la postulación', error: error.message });
+  }
+};
+
+// Actualizar el estado de una postulación por parte de la empresa
+exports.updateApplicationStatusByCompany = async (req, res) => {
+  try {
+    const applicationID = parseInt(req.params.applicationID);
+    const { status } = req.body;
+    const requesterID = req.user.id; // userID de la empresa
+
+    if (!['Aceptado', 'Rechazado'].includes(status)) {
+      return res.status(400).json({ message: 'Estado inválido. Solo se permite Aceptado o Rechazado.' });
+    }
+
+    // Obtener companyID real
+    const [[company]] = await pool.query(
+      'SELECT companyID FROM Company WHERE userID = ? AND recordStatus = "Activo"',
+      [requesterID]
+    );
+
+    if (!company) {
+      return res.status(404).json({ message: 'Empresa no encontrada.' });
+    }
+
+    // Obtener la postulación
+    const [[application]] = await pool.query(`
+      SELECT SA.*, P.companyID, P.currentStudents, P.maxStudents
+      FROM StudentApplication SA
+      JOIN PracticePosition P ON SA.practicePositionID = P.practicePositionID
+      WHERE SA.applicationID = ? AND SA.recordStatus = 'Activo'
+    `, [applicationID]);
+
+    if (!application) {
+      return res.status(404).json({ message: 'Postulación no encontrada.' });
+    }
+
+    if (application.companyID !== company.companyID) {
+      return res.status(403).json({ message: 'No tienes permiso para modificar esta postulación.' });
+    }
+
+    if (status === 'Aceptado') {
+      if (application.currentStudents >= application.maxStudents) {
+        return res.status(400).json({ message: 'No se puede aceptar. La vacante ya está llena.' });
+      }
+
+      // Aumentar el número de estudiantes aceptados
+      await pool.query(
+        'UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?',
+        [application.practicePositionID]
+      );
+    }
+
+    // Actualizar la postulación
+    const today = new Date().toISOString().split('T')[0];
+    const newEntry = `${status} (${today})`;
+    const updatedHistory = application.statusHistory
+      ? `${application.statusHistory}, ${newEntry}`
+      : newEntry;
+
+    await pool.query(`
+      UPDATE StudentApplication
+      SET status = ?, statusHistory = ?
+      WHERE applicationID = ?
+    `, [status, updatedHistory, applicationID]);
+
+    res.status(200).json({ message: `Postulación actualizada a ${status}.` });
+
+  } catch (error) {
+    console.error('Error actualizando estado de postulación:', error.message);
+    res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
 };
