@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 
 const updateProgressStep = async (studentID, newStep) => {
-  if (![0, 1, 2, 3, 4].includes(newStep)) {
+  if (newStep < 0 || newStep > 10) {
     throw new Error('Paso de progreso inválido');
   }
 
