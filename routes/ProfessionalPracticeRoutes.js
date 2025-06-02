@@ -14,21 +14,35 @@ router.get(
   professionalPracticeController.getAllPractices
 );
 
-// Obtener la práctica profesional registrada de un estudiante
+// Obtener la práctica profesional del estudiante autenticado
+router.get(
+  '/me',
+  authMiddleware,
+  checkUserType(['student']),
+  professionalPracticeController.getPracticeByLoggedStudent
+);
+
+// Obtener el progreso de la práctica profesional del estudiante autenticado
+router.get(
+  '/progress/me',
+  authMiddleware,
+  checkUserType(['student']),
+  professionalPracticeController.getMyPracticeProgress
+);
+
+// Obtener la práctica profesional registrada de un estudiante (Admin o Asesor Interno)
 router.get(
   '/student/:studentID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['student', 'internalAssessor']),
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getPracticeByStudentID
 );
 
-// Obtener todas las prácticas asignadas a una empresa
+// Obtener todas las prácticas registradas por una empresa
 router.get(
   '/company/:companyID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['company']),
+  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getPracticesByCompanyID
 );
 
@@ -36,8 +50,7 @@ router.get(
 router.get(
   '/external-assessor/:externalAssessorID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['externalAssessor']),
+  checkUserTypeOrRole(['externalAssessor', 'company'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getPracticesByExternalAssessorID
 );
 
@@ -45,8 +58,7 @@ router.get(
 router.get(
   '/internal-assessor/:internalAssessorID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getPracticesByInternalAssessorID
 );
 
@@ -54,8 +66,7 @@ router.get(
 router.get(
   '/internal-assessor/:internalAssessorID/student/:studentID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['internalAssessor']),
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getStudentPracticeByAssessor
 );
 
@@ -63,8 +74,7 @@ router.get(
 router.get(
   '/students/external-assessor/:externalAssessorID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['externalAssessor']),
+  checkUserTypeOrRole(['externalAssessor', 'company'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getStudentsByExternalAssessorID
 );
 
@@ -72,8 +82,7 @@ router.get(
 router.get(
   '/students/company/:companyID',
   authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  checkUserType(['company']),
+  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
   professionalPracticeController.getStudentsByCompanyID
 );
 
@@ -91,6 +100,33 @@ router.patch(
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
   professionalPracticeController.patchPractice
+);
+
+// Actualizar el estado de una práctica profesional
+router.patch(
+  '/:practiceID/status',
+  authMiddleware,
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
+  professionalPracticeController.updatePracticeStatus
+);
+
+// Actualizar el progreso de una práctica profesional
+router.patch(
+  '/:practiceID/progress',
+  authMiddleware,
+  checkUserTypeOrRole(['internalAssessor'], ['Admin', 'SuperAdmin']),
+  professionalPracticeController.updatePracticeProgress
+);
+
+// Obtener el progreso de la práctica profesional de un alumno
+router.get(
+  '/progress/student/:studentID',
+  authMiddleware,
+  checkUserTypeOrRole(
+  ['student', 'internalAssessor', 'externalAssessor', 'company'],
+  ['Admin', 'SuperAdmin']
+  ),
+  professionalPracticeController.getPracticeProgress
 );
 
 // Eliminar lógicamente una práctica profesional

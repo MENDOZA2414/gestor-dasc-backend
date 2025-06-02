@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const StudentDocumentation = require('../models/StudentDocumentation');
+const { updateProgressStep } = require('../services/ProfessionalPracticeService');
 
 // Obtener documentos por estudiante y estatus
 exports.getDocumentsByStudentAndStatus = async (req, res) => {
@@ -225,6 +226,18 @@ exports.approveDocument = async (req, res) => {
       doc.fileName,
       doc.filePath
     );
+    
+    // Actualizar progreso si es un reporte relevante
+    const docType = doc.documentType;
+    const studentID = doc.studentID;
+
+    if (docType === 'Reporte I') {
+      await updateProgressStep(studentID, 1);
+    } else if (docType === 'Reporte II') {
+      await updateProgressStep(studentID, 2);
+    } else if (docType === 'Reporte Final') {
+      await updateProgressStep(studentID, 3);
+    }
 
     res.status(200).send(result);
 

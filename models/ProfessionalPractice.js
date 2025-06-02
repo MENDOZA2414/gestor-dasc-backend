@@ -43,7 +43,8 @@ const getPracticeByStudentID = async (studentID) => {
       PP.endDate,
       PP.status,
       PP.positionTitle,
-      PP.creationDate
+      PP.creationDate,
+      PP.progressStep
     FROM ProfessionalPractice PP
     JOIN Company C ON PP.companyID = C.companyID
     LEFT JOIN ExternalAssessor EA ON PP.externalAssessorID = EA.externalAssessorID
@@ -280,6 +281,15 @@ const getTopCompaniesByStudentCount = async () => {
   return { totalStudents, topCompanies };
 };
 
+// Obtener una práctica profesional por su ID
+const getPracticeByID = async (practiceID) => {
+  const [rows] = await pool.query(
+    'SELECT * FROM ProfessionalPractice WHERE practiceID = ? AND recordStatus = "Activo"',
+    [practiceID]
+  );
+  return rows[0] || null;
+};
+
 // Editar una práctica profesional existente
 const patchPractice = async (practiceID, updateData) => {
   const fields = [];
@@ -335,6 +345,36 @@ const deletePractice = async (practiceID) => {
   return { message: 'Práctica profesional eliminada correctamente' };
 };
 
+// Actualizar el estado de una práctica profesional
+const updatePracticeStatus = async (practiceID, newStatus) => {
+  const [result] = await pool.query(
+    'UPDATE ProfessionalPractice SET status = ? WHERE practiceID = ? AND recordStatus = "Activo"',
+    [newStatus, practiceID]
+  );
+  return result;
+};
+
+// Actualizar el progreso de una práctica profesional (ADMIN)
+const updatePracticeProgress = async (practiceID, progressStep) => {
+  await pool.query(
+    'UPDATE ProfessionalPractice SET progressStep = ? WHERE practiceID = ? AND recordStatus = "Activo"',
+    [progressStep, practiceID]
+  );
+};
+
+// Actualizar el progreso de una práctica profesional
+const updateProgressStep = async (practiceID, newStep) => {
+  if (![0, 1, 2, 3, 4, 5].includes(newStep)) {
+    throw new Error('Paso de progreso inválido');
+  }
+
+  await pool.query(`
+    UPDATE ProfessionalPractice
+    SET progressStep = ?
+    WHERE practiceID = ? AND recordStatus = 'Activo'
+  `, [newStep, practiceID]);
+};
+
 module.exports = {
     createPractice,
     getPracticeByStudentID,
@@ -346,6 +386,10 @@ module.exports = {
     getStudentsByExternalAssessorID,
     getStudentsByCompanyID,
     getTopCompaniesByStudentCount,
+    getPracticeByID,
     patchPractice,
-    deletePractice
+    deletePractice,
+    updatePracticeStatus,
+    updateProgressStep,
+    updatePracticeProgress
 };
