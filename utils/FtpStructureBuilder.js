@@ -46,4 +46,13 @@ async function createFtpStructure(userType, id) {
   }
 }
 
-module.exports = createFtpStructure;
+function generateStudentDocPath(studentID, fileName) {
+  const fullPath = `/practices/students/student_${studentID}/documents/${fileName}`;
+  const fullURL = `https://uabcs.online/practicas${fullPath}`;
+  return { fullPath, fullURL };
+}
+
+module.exports = {
+  createFtpStructure,
+  generateStudentDocPath
+};

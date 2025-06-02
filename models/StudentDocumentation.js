@@ -8,7 +8,7 @@ const saveDocument = async (data) => {
   const insertQuery = `
     INSERT INTO StudentDocumentation (
       studentID, documentType, fileName, filePath, status, recordStatus
-    ) VALUES (?, ?, ?, ?, 'Pendiente', 'Activo')
+    ) VALUES (?, 'Student', ?, ?, 'Pendiente', 'Activo')
   `;
 
   await pool.query(insertQuery, [studentID, documentType, fileName, filePath]);

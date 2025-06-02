@@ -10,6 +10,10 @@ const StudentDocumentation = require("../models/StudentDocumentation");
 const storage = multer.memoryStorage(); // Guardar archivo en memoria
 const upload = multer({ storage }).single("file");
 
+const { getNextRequiredDocument } = require('../services/ProgressService');
+const { generateStudentDocPath } = require('../utils/FtpStructureBuilder');
+const { v4: uuidv4 } = require('uuid');
+
 // Tipos de documentos permitidos por tipo de usuario
 const pathsByUserType = {
   student: [
@@ -231,7 +235,87 @@ const uploadGeneralDocument = async (req, res) => {
   });
 };
 
+// Subir el siguiente documento requerido por el estudiante
+const uploadNextDocument = async (req, res) => {
+  const client = new ftp.Client();
+  try {
+    const userID = req.user.id;
+    const userTypeID = req.user.userTypeID;
+
+    if (userTypeID !== 2) {
+      return res.status(403).json({ message: 'Solo los estudiantes pueden subir documentos' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No se proporcionó ningún archivo' });
+    }
+
+    // Obtener studentID real
+    const [[studentRow]] = await pool.query(
+      'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+    if (!studentRow) {
+      return res.status(404).json({ message: 'Estudiante no encontrado' });
+    }
+    const studentID = studentRow.studentID;
+
+    // Obtener siguiente tipo de documento
+    const nextDocType = await getNextRequiredDocument(studentID);
+    if (!nextDocType) {
+      return res.status(400).json({ message: 'Ya has completado todos los documentos requeridos' });
+    }
+
+    // Construir nombre de archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    const fileName = `${nextDocType}_Pendiente_${fecha}_${uuidv4()}.pdf`;
+    const fullPath = `/practices/students/student_${studentID}/documents/${fileName}`;
+    const fullURL = `https://uabcs.online/practicas${fullPath}`;
+
+    // Subir al FTP
+    await uploadToFTP(req.file.buffer, fullPath);
+
+    // Guardar en base de datos
+    try {
+      const result = await StudentDocumentation.saveDocument({
+        studentID,
+        documentType: nextDocType,
+        fileName,
+        filePath: fullURL,
+        status: 'Pendiente'
+      });
+
+      return res.status(201).json({
+        message: `Documento ${nextDocType} subido exitosamente`,
+        data: result
+      });
+
+    } catch (dbError) {
+      // Si la BD falla, eliminar el archivo del FTP
+      try {
+        await client.access(ftpConfig);
+        await client.remove(fullPath);
+        console.warn('Se eliminó el archivo del FTP por fallo en BD');
+      } catch (ftpRollbackError) {
+        console.error('Error al intentar eliminar el archivo tras fallo en BD:', ftpRollbackError.message);
+      }
+
+      return res.status(500).json({
+        message: 'Error al guardar el documento en la base de datos',
+        error: dbError.message
+      });
+    }
+
+  } catch (err) {
+    console.error('Error general al subir documento:', err.message);
+    return res.status(500).json({ message: 'Error general', error: err.message });
+  } finally {
+    client.close();
+  }
+};
+
 module.exports = {
   uploadGeneralDocument,
-  streamDocumentByPath
+  streamDocumentByPath,
+  uploadNextDocument
 };
