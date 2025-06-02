@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const StudentDocumentation = require('../models/StudentDocumentation');
 const { updateProgressStep } = require('../services/ProfessionalPracticeService');
+const logAudit = require('../utils/logAudit');
 
 // Obtener documentos por estudiante y estatus
 exports.getDocumentsByStudentAndStatus = async (req, res) => {
@@ -226,7 +227,17 @@ exports.approveDocument = async (req, res) => {
       doc.fileName,
       doc.filePath
     );
-    
+
+    await logAudit({
+      table: 'StudentDocumentation',
+      action: 'Aprobacion',
+      userID: requesterID,
+      userType: isAdmin ? 'admin' : 'internalAssessor',
+      details: `Documento aprobado: ${doc.fileName}`,
+      documentID: documentID,
+      studentID: doc.studentID
+    });
+
     // Actualizar progreso si es un reporte relevante
     const docType = doc.documentType;
     const studentID = doc.studentID;
@@ -304,6 +315,16 @@ exports.rejectDocument = async (req, res) => {
       doc.filePath
     );
 
+    await logAudit({
+    table: 'StudentDocumentation',
+    action: 'Rechazo',
+    userID: requesterID,
+    userType: isAdmin ? 'admin' : 'internalAssessor',
+    details: `Documento rechazado: ${doc.fileName}`,
+    documentID: documentID,
+    studentID: doc.studentID
+  });
+
     res.status(200).send(result);
 
   } catch (err) {
@@ -342,6 +363,22 @@ exports.markDocumentAsInReview = async (req, res) => {
       document.fileName,
       document.filePath
     );
+    
+    const doc = await StudentDocumentation.getDocumentByID(documentID);
+
+    if (!doc) {
+      return res.status(404).json({ message: 'Documento no encontrado para auditoría.' });
+    }
+
+    await logAudit({
+      table: 'StudentDocumentation',
+      action: 'Envio',
+      userID: req.user.id,
+      userType: 'student',
+      details: `Documento enviado a revisión: ${doc.fileName}`,
+      documentID: documentID,
+      studentID: doc.studentID
+    });
 
     res.status(200).json(result);
 

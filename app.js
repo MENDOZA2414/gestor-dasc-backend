@@ -18,6 +18,7 @@ const studentDocumentationRoutes = require('./routes/StudentDocumentationRoutes'
 const documentRoutes = require('./routes/DocumentRoutes');
 const professionalPracticeRoutes = require('./routes/ProfessionalPracticeRoutes');
 const userRoleRoutes = require('./routes/UserRoleRoutes');
+const auditRoutes = require('./routes/AuditRoutes');
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/api/professional-practices', professionalPracticeRoutes);  // Rutas pa
 app.use('/api/student-documentation', studentDocumentationRoutes);  // Rutas para documentos de alumnos
 app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 app.use('/api/user-roles', userRoleRoutes); // Rutas para roles de usuarios
+app.use('/api/audit', auditRoutes); // Rutas para auditoría de documentos
 
 // Manejo de errores
 app.use((req, res, next) => {
