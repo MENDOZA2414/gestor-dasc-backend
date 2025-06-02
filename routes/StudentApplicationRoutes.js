@@ -1,31 +1,16 @@
 const express = require('express');
 const router = express.Router();
+
 const studentApplicationController = require('../controllers/StudentApplicationController');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
-const documentUpload = require('../middlewares/DocumentUpload'); 
 const checkUserTypeOrRole = require('../middlewares/CheckUserTypeOrRole');
+const documentUpload = require('../middlewares/DocumentUpload');
 
-// Ruta para obtener aplicaciones por vacante ID
-router.get(
-  '/position/:positionID',
-  authMiddleware,
-  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
-  studentApplicationController.getApplicationsByPositionID
-);
+// ──────── Rutas protegidas (GET) ────────
 
-
-// Ruta para obtener nombre y URL de la carta de presentación por ID de postulación
-router.get(
-  '/cover-letter/:id',
-  authMiddleware,
-  checkUserTypeOrRole(['student', 'company'], ['Admin', 'SuperAdmin']),
-  studentApplicationController.getCoverLetterByID
-);
-
-
-// Ruta para verificar si un alumno ya ha aplicado a una vacante
+// Obtener postulaciones del alumno autenticado (¿ya ha aplicado a una vacante?)
 router.get(
   '/me',
   authMiddleware,
@@ -33,7 +18,7 @@ router.get(
   studentApplicationController.getApplicationsByLoggedStudent
 );
 
-// Obtener todas las postulaciones de la empresa autenticada
+// Obtener todas las postulaciones recibidas por la empresa autenticada
 router.get(
   '/my-company',
   authMiddleware,
@@ -41,7 +26,23 @@ router.get(
   studentApplicationController.getApplicationsByMyCompany
 );
 
-// Ruta para obtener postulaciones por ID de alumno
+// Obtener postulaciones por ID de empresa (Admin/SuperAdmin)
+router.get(
+  '/company/:companyID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentApplicationController.getApplicationsByCompanyID
+);
+
+// Obtener postulaciones por ID de vacante
+router.get(
+  '/position/:positionID',
+  authMiddleware,
+  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
+  studentApplicationController.getApplicationsByPositionID
+);
+
+// Obtener postulaciones por ID de alumno
 router.get(
   '/student/:studentID',
   authMiddleware,
@@ -49,7 +50,25 @@ router.get(
   studentApplicationController.getApplicationsByStudentID
 );
 
-// Ruta para registrar una nueva postulación con subida de archivo a FTP
+// Obtener postulaciones filtradas por estatus
+router.get(
+  '/status/:status',
+  authMiddleware,
+  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
+  studentApplicationController.getApplicationsByStatus
+);
+
+// Obtener nombre y URL de la carta de presentación por ID de postulación
+router.get(
+  '/cover-letter/:id',
+  authMiddleware,
+  checkUserTypeOrRole(['student', 'company'], ['Admin', 'SuperAdmin']),
+  studentApplicationController.getCoverLetterByID
+);
+
+// ──────── Rutas protegidas (POST) ────────
+
+// Registrar una nueva postulación con carta de presentación (solo alumnos)
 router.post(
   '/register',
   authMiddleware,
@@ -58,15 +77,9 @@ router.post(
   studentApplicationController.registerApplication
 );
 
-// Obtener todas las postulaciones recibidas por una entidad
-router.get(
-  '/company/:companyID',
-  authMiddleware,
-  checkRole(['Admin', 'SuperAdmin']),
-  studentApplicationController.getApplicationsByCompanyID
-);
+// ──────── Rutas protegidas (PATCH) ────────
 
-// Actualizar una postulación (aceptar o rechazar)
+// Actualizar una postulación por parte del asesor interno o un administrador
 router.patch(
   '/update/:applicationID',
   authMiddleware,
@@ -74,21 +87,12 @@ router.patch(
   studentApplicationController.patchApplicationController
 );
 
-// La empresa actualiza el estado de una postulación que le pertenece a Rechazado o Preaceptado
+// Cambiar estatus de la postulación (Rechazado o Preaceptado) por parte de la empresa propietaria
 router.patch(
   '/status/:applicationID',
   authMiddleware,
   checkUserType(['company']),
   studentApplicationController.updateApplicationStatusByCompany
 );
-
-// Obtener todas las postulaciones por status
-router.get(
-  '/status/:status',
-  authMiddleware,
-  checkUserTypeOrRole(['company'], ['Admin', 'SuperAdmin']),
-  studentApplicationController.getApplicationsByStatus
-);
-
 
 module.exports = router;
