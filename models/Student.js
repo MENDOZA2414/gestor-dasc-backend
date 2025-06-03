@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 const { registerUser } = require('./User');
 const validateStudentData = require('../utils/validators/ValidateStudentData');
-const createFtpStructure = require('../utils/FtpStructureBuilder');
+const { createFtpStructure } = require('../utils/FtpStructureBuilder');
 const { assignRolesToUserWithConnection } = require('../models/UserRole');
 
 const uploadToFTP = require('../utils/FtpUploader'); 
@@ -36,7 +36,7 @@ const registerStudent = async (studentData) => {
     const [existingAssessor] = await connection.query(
       `SELECT * FROM InternalAssessor 
       WHERE internalAssessorID = ? 
-        AND status = 'Pendiente' 
+        AND status = 'Aceptado' 
         AND recordStatus = 'Activo'`,
       [internalAssessorID]
     );
