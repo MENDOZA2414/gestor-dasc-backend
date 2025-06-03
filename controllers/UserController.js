@@ -283,18 +283,47 @@ exports.getUserProfileAndRoles = async (req, res) => {
   try {
     const userID = req.user.id;
 
-    const [userResult] = await pool.query(`
-      SELECT u.userID, u.email, u.phone, ut.userTypeName
-      FROM User u
-      JOIN UserType ut ON u.userTypeID = ut.userTypeID
-      WHERE u.userID = ? AND u.recordStatus = 'Activo'
+    // Primero obtenemos el userTypeID
+    const [[userTypeResult]] = await pool.query(`
+      SELECT userTypeID FROM User WHERE userID = ? AND recordStatus = 'Activo'
     `, [userID]);
 
-    if (userResult.length === 0) {
+    if (!userTypeResult) {
       return res.status(404).json({ message: 'Usuario no encontrado', error: 'Usuario no encontrado o eliminado' });
     }
 
-    const user = userResult[0];
+    const userTypeID = userTypeResult.userTypeID;
+
+    let user;
+
+    // Si es admin (99), obtenemos también fullName 
+    if (userTypeID === 99) {
+      const [[adminData]] = await pool.query(`
+        SELECT userID, email, phone, fullName
+        FROM User
+        WHERE userID = ? AND recordStatus = 'Activo'
+      `, [userID]);
+
+      user = {
+        ...adminData,
+        userTypeName: 'adminOnly'
+      };
+    } else {
+      const [userResult] = await pool.query(`
+        SELECT u.userID, u.email, u.phone, ut.userTypeName
+        FROM User u
+        JOIN UserType ut ON u.userTypeID = ut.userTypeID
+        WHERE u.userID = ? AND u.recordStatus = 'Activo'
+      `, [userID]);
+
+      if (userResult.length === 0) {
+        return res.status(404).json({ message: 'Usuario no encontrado', error: 'Usuario no encontrado o eliminado' });
+      }
+
+      user = userResult[0];
+    }
+
+    // Roles
     const roles = await UserRole.getRolesByUserID(userID);
 
     res.status(200).json({ user, roles });
