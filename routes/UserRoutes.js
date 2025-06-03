@@ -8,6 +8,7 @@ const checkOwnershipOrAdmin = require('../middlewares/CheckOwnershipOrAdmin');
 const { getUserOwnerID } = require('../utils/ownershipResolvers');
 const loginLimiter = require('../middlewares/LoginLimiter');
 const { uploadProfilePhoto } = require('../controllers/ProfileController');
+const { getUnreadNotificationsController } = require('../controllers/UserController');
 
 const {
   registerUserController,
@@ -63,6 +64,9 @@ router.post('/logout', authMiddleware, logoutUserController);
 
 // Cambiar contraseña propia
 router.patch('/change-password', authMiddleware, changePasswordController);
+
+// Obtener notificaciones no leídas (solo Admin/SuperAdmin)
+router.get('/notifications/unread', authMiddleware, checkRole(['Admin', 'SuperAdmin']), getUnreadNotificationsController);
 
 // Obtener usuario por ID
 router.get('/:userID', authMiddleware, checkRole(['Admin', 'SuperAdmin']), getUserByIDController);

@@ -11,6 +11,7 @@ const {
 const UserRole = require('../models/UserRole');
 const { isTargetAdminUser } = require('../utils/checkTargetIsAdmin');
 const { isValidEmail, isValidPhone, isValidPassword } = require('../utils/validators/commonValidators');
+const Notification = require('../models/Notification');
 
 // Registrar usuario
 exports.registerUserController = async (req, res) => {
@@ -48,6 +49,11 @@ exports.registerUserController = async (req, res) => {
         message: 'Usuario registrado con éxito',
         userID
       });
+      await Notification.create({
+        type: 'NuevoUsuario',
+        message: `Se ha registrado un nuevo usuario con ID ${userID}`
+      });
+
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -799,5 +805,15 @@ exports.patchOwnPhoneController = async (req, res) => {
   } catch (error) {
     console.error('Error al actualizar teléfono:', error.message);
     res.status(500).json({ message: 'Error interno al actualizar el número de teléfono' });
+  }
+};
+
+exports.getUnreadNotificationsController = async (req, res) => {
+  try {
+    const notifications = await Notification.getUnread();
+    res.status(200).json(notifications);
+  } catch (error) {
+    console.error('Error al obtener notificaciones:', error.message);
+    res.status(500).json({ message: 'Error al obtener notificaciones' });
   }
 };
