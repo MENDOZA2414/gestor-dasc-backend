@@ -1,5 +1,6 @@
 const { calculatePracticeProgress } = require('../services/PracticeProgressService');
 const { hasAccessToPractice } = require('../services/PracticeAccessService');
+const pool = require('../config/db'); 
 
 const getPracticeProgress = async (req, res) => {
   try {
@@ -24,7 +25,19 @@ const getPracticeProgress = async (req, res) => {
 // Estudiante autenticado consulta su propio progreso
 const getMyPracticeProgress = async (req, res) => {
   try {
-    const studentID = req.user.id;
+    const userID = req.user.id;
+
+    // Buscar el studentID correspondiente
+    const [[student]] = await pool.query(
+      'SELECT studentID FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+      [userID]
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: 'Alumno no encontrado' });
+    }
+
+    const studentID = student.studentID;
 
     const result = await calculatePracticeProgress(studentID);
     res.status(200).json(result);

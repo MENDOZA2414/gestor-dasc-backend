@@ -695,13 +695,25 @@ exports.updateApplicationStatusByCompany = async (req, res) => {
         });
       }
 
+      // Solo verificar que tenga CartaPresentacion aceptada
+      const [[doc]] = await pool.query(`
+        SELECT documentID FROM StudentDocumentation
+        WHERE studentID = ? AND documentType = 'CartaPresentacion' AND status = 'Aceptado' AND recordStatus = 'Activo'
+        LIMIT 1
+      `, [application.studentID]);
+
+      if (!doc) {
+        return res.status(400).json({
+          message: 'No se puede preaceptar. El estudiante no tiene una Carta de Presentación aceptada.'
+        });
+      }
+
       // Si pasa validaciones, aumentar el contador
       await pool.query(
         'UPDATE PracticePosition SET currentStudents = currentStudents + 1 WHERE practicePositionID = ?',
         [application.practicePositionID]
       );
     }
-
 
     // Armar historial
     const today = new Date().toISOString().split('T')[0];

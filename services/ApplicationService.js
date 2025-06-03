@@ -109,6 +109,21 @@ const createPracticeFromApplication = async (studentID, companyID, externalAsses
   `, [studentID]);
 
   if (existingPractice) return;
+   
+  // Verificar que tenga los 4 documentos base aceptados
+  const [documents] = await pool.query(`
+    SELECT documentType FROM StudentDocumentation
+    WHERE studentID = ? AND status = 'Aceptado' AND recordStatus = 'Activo'
+  `, [studentID]);
+
+  const requiredDocs = ['CartaPresentacion', 'CartaAceptacion', 'CartaCompromiso', 'CartaIMSS'];
+  const acceptedDocs = documents.map(d => d.documentType);
+
+  const hasAllBaseDocs = requiredDocs.every(doc => acceptedDocs.includes(doc));
+
+  if (!hasAllBaseDocs) {
+    throw new Error('No se puede iniciar la práctica. Faltan documentos base requeridos (presentación, aceptación, compromiso, IMSS).');
+  }
 
   // Crear práctica profesional
   await ProfessionalPractice.createPractice({

@@ -5,17 +5,16 @@ const authMiddleware = require("../middlewares/AuthMiddleware");
 const documentUploadMiddleware = require("../middlewares/DocumentUpload");
 
 // Subida general de documentos (archivos FTP), protegida por token
-router.post("/upload", authMiddleware, documentController.uploadGeneralDocument);
+//router.post("/upload", authMiddleware, documentController.uploadGeneralDocument);
 
 // Vista de documentos por tipo de usuario
 router.get("/view", authMiddleware, documentController.streamDocumentByPath);
 
 // Subir el siguiente documento requerido en el flujo de prácticas (solo estudiantes)
-router.post(
-  '/upload/next',
+router.post('/upload', 
   authMiddleware,
   documentUploadMiddleware,
-  documentController.uploadNextDocument
+  documentController.uploadStudentDocument
 );
 
 module.exports = router;

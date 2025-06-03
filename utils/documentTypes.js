@@ -1,8 +1,8 @@
 const VALID_DOCUMENT_TYPES = [
   'CartaPresentacion',
   'CartaAceptacion',
-  'CartaIMSS',
   'CartaCompromiso',
+  'CartaIMSS',
   'Reporte I',
   'Reporte II',
   'Reporte Final',
@@ -20,8 +20,8 @@ const REPORT_TYPES = [
 const FLOW_ORDER = [
   'CartaPresentacion',
   'CartaAceptacion',
-  'CartaIMSS',
   'CartaCompromiso',
+  'CartaIMSS',
   'Reporte I',
   'Reporte II',
   'Reporte Final',

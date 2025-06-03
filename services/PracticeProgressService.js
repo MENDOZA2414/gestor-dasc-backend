@@ -1,53 +1,79 @@
 const pool = require('../config/db');
 
+// Documentos requeridos para calcular progreso
 const PRACTICE_DOCUMENTS = [
   'Reporte I',
   'Reporte II',
+  'Reporte Final',          
   'CuestionarioSatisfaccion',
   'CartaTerminacion',
   'InformeFinal'
 ];
 
 const DOCUMENT_STEP_VALUES = {
-  'Reporte I': 20,
-  'Reporte II': 20,
-  'CuestionarioSatisfaccion': 20,
-  'CartaTerminacion': 20,
+  'Reporte I': 15,
+  'Reporte II': 15,
+  'Reporte Final': 20,
+  'CuestionarioSatisfaccion': 15,
+  'CartaTerminacion': 15,
   'InformeFinal': 20
 };
+// Normalizador de texto (sin espacios, lowercase)
+const normalize = (s) => s.trim().toLowerCase().replace(/\s+/g, '');
+
+// Convertimos las listas a versiones normalizadas
+const normalizedPracticeDocs = PRACTICE_DOCUMENTS.map(normalize);
+const normalizedStepValues = {};
+for (const [key, value] of Object.entries(DOCUMENT_STEP_VALUES)) {
+  normalizedStepValues[normalize(key)] = value;
+}
 
 const calculatePracticeProgress = async (studentID) => {
-  // Verificar documentos aprobados
+  console.log("studentID recibido:", studentID);
+
   const [docs] = await pool.query(`
     SELECT documentType FROM StudentDocumentation
     WHERE studentID = ? AND status = 'Aceptado' AND recordStatus = 'Activo'
   `, [studentID]);
 
   const approvedDocs = docs.map(d => d.documentType);
+  const normalizedApproved = approvedDocs.map(normalize);
 
-  // Filtrar solo los documentos de la práctica profesional
-  const approvedPracticeDocs = approvedDocs.filter(doc => PRACTICE_DOCUMENTS.includes(doc));
+  const approvedPracticeDocs = approvedDocs.filter(
+    (doc, idx) => normalizedPracticeDocs.includes(normalizedApproved[idx])
+  );
 
   // Calcular porcentaje
   let practicePercentage = 0;
-  for (const doc of approvedPracticeDocs) {
-    practicePercentage += DOCUMENT_STEP_VALUES[doc] || 0;
+  for (const normDoc of normalizedApproved) {
+    if (normalizedStepValues[normDoc]) {
+      practicePercentage += normalizedStepValues[normDoc];
+    }
   }
 
-  // Consultar paso actual de la práctica
+  // Verificar si la práctica ya inició (step >= 5)
   const [[practice]] = await pool.query(`
-    SELECT progressStep FROM ProfessionalPractice
+    SELECT progressStep, status FROM ProfessionalPractice
     WHERE studentID = ? AND recordStatus = 'Activo'
     LIMIT 1
   `, [studentID]);
 
   const practiceStarted = practice && practice.progressStep >= 5;
 
-  // Verificar si tiene los requisitos previos (puede iniciar)
-  const hasCartaPresentacion = approvedDocs.includes('CartaPresentacion');
-  const hasCartaAceptacion = approvedDocs.includes('CartaAceptacion');
-  const hasCartaCompromiso = approvedDocs.includes('CartaCompromiso');
-  const hasCartaIMSS = approvedDocs.includes('CartaIMSS');
+  // Cambiar a Finished si ya completó todos los documentos
+  if (practicePercentage === 100 && practice?.status === 'Started') {
+    await pool.query(`
+      UPDATE ProfessionalPractice
+      SET status = 'Finished'
+      WHERE studentID = ? AND recordStatus = 'Activo'
+    `, [studentID]);
+  }
+
+  // Verificar si puede iniciar práctica
+  const hasCartaPresentacion = normalizedApproved.includes(normalize('CartaPresentacion'));
+  const hasCartaAceptacion = normalizedApproved.includes(normalize('CartaAceptacion'));
+  const hasCartaCompromiso = normalizedApproved.includes(normalize('CartaCompromiso'));
+  const hasCartaIMSS = normalizedApproved.includes(normalize('CartaIMSS'));
 
   const [[app]] = await pool.query(`
     SELECT status FROM StudentApplication
@@ -63,7 +89,7 @@ const calculatePracticeProgress = async (studentID) => {
     hasCartaCompromiso &&
     hasCartaIMSS &&
     hasPreaceptedApplication;
-
+    
   return {
     practiceStarted,
     practicePercentage,
