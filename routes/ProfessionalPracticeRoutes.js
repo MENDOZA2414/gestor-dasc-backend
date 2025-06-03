@@ -33,6 +33,14 @@ router.get(
   professionalPracticeController.getMyPracticeProgress
 );
 
+// Contar prácticas activas y concluidas
+router.get(
+  '/count-by-status',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  professionalPracticeController.countPracticesByStatus
+);
+
 // Obtener el progreso de la práctica de un alumno específico
 router.get(
   '/progress/student/:studentID',

@@ -738,3 +738,25 @@ exports.getMyPracticeProgress = async (req, res) => {
     res.status(500).json({ message: 'Error del servidor', error: error.message });
   }
 };
+
+exports.countPracticesByStatus = async (req, res) => {
+  try {
+    const [[started]] = await pool.query(`
+      SELECT COUNT(*) AS count FROM ProfessionalPractice
+      WHERE status = 'Started' AND recordStatus = 'Activo'
+    `);
+
+    const [[finished]] = await pool.query(`
+      SELECT COUNT(*) AS count FROM ProfessionalPractice
+      WHERE status = 'Finished' AND recordStatus = 'Activo'
+    `);
+
+    res.status(200).json({
+      started: started.count,
+      finished: finished.count
+    });
+  } catch (error) {
+    console.error('Error al contar prácticas:', error.message);
+    res.status(500).json({ message: 'Error al contar prácticas' });
+  }
+};

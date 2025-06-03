@@ -99,11 +99,23 @@ const getStudentByControlNumber = async (req, res) => {
   const requesterID = req.user.id;
 
   try {
-    // Obtener alumno
-    const student = await Student.getStudentByControlNumber(controlNumber);
-    if (!student) {
+    // Obtener alumno + email y teléfono con JOIN
+    const [rows] = await pool.query(
+      `SELECT 
+         s.*, 
+         u.email, 
+         u.phone
+       FROM Student s
+       JOIN User u ON s.userID = u.userID
+       WHERE s.controlNumber = ? AND s.recordStatus = 'Activo'`,
+      [controlNumber]
+    );
+
+    if (rows.length === 0) {
       return res.status(404).json({ message: 'Alumno no encontrado' });
     }
+
+    const student = rows[0];
 
     // Obtener roles del usuario autenticado
     const [rolesRows] = await pool.query(`
@@ -116,7 +128,7 @@ const getStudentByControlNumber = async (req, res) => {
     const roles = rolesRows.map(r => r.roleName);
     const isAdmin = roles.includes('Admin') || roles.includes('SuperAdmin');
 
-    // Si no es admin...
+    // Si no es admin, aplicar restricciones
     if (!isAdmin) {
       const userTypeID = req.user.userTypeID;
 
