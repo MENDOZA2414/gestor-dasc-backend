@@ -21,19 +21,19 @@ router.get(
   internalAssessorController.getInternalAssessorProfile
 );
 
-// Obtener asesor interno por ID (para Admin, SuperAdmin o dueño del perfil)
-router.get(
-  '/:id',
-  authMiddleware,
-  internalAssessorController.getInternalAssessorByID
-);
-
 // Contar número total de asesores internos
 router.get(
   '/count',
   authMiddleware,
   checkRole(['Admin', 'SuperAdmin']),
   internalAssessorController.countInternalAssessors
+);
+
+// Obtener asesor interno por ID (para Admin, SuperAdmin o dueño del perfil)
+router.get(
+  '/:id',
+  authMiddleware,
+  internalAssessorController.getInternalAssessorByID
 );
 
 // Registrar un nuevo asesor interno
