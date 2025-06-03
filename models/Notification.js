@@ -1,17 +1,30 @@
 const pool = require('../config/db');
 
 const Notification = {
-  create: async ({ type, message }) => {
+  create: async ({ type, message, userID = null }) => {
     const [result] = await pool.query(
-      'INSERT INTO Notification (type, message) VALUES (?, ?)',
-      [type, message]
+      'INSERT INTO Notification (type, message, userID) VALUES (?, ?, ?)',
+      [type, message, userID]
     );
     return result.insertId;
   },
 
   getUnread: async () => {
     const [rows] = await pool.query(
-      'SELECT * FROM Notification WHERE isRead = false ORDER BY createdAt DESC'
+      `
+      SELECT 
+        n.notificationID,
+        n.type,
+        n.message,
+        n.isRead,
+        n.createdAt,
+        u.userID,
+        u.email
+      FROM Notification n
+      LEFT JOIN User u ON n.userID = u.userID
+      WHERE n.isRead = false
+      ORDER BY n.createdAt DESC
+      `
     );
     return rows;
   },
