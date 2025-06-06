@@ -20,6 +20,9 @@ const professionalPracticeRoutes = require('./routes/ProfessionalPracticeRoutes'
 const userRoleRoutes = require('./routes/UserRoleRoutes');
 const auditRoutes = require('./routes/AuditRoutes');
 const practiceProgressRoutes = require('./routes/PracticeProgressRoutes');
+// Swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 
 const app = express();
 
@@ -84,5 +87,8 @@ app.use((err, req, res, next) => {
     error: req.app.get('env') === 'development' ? err : {}
   });
 });
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 module.exports = app;
