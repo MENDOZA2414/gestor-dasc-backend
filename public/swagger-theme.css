@@ -1,0 +1,192 @@
+:root {
+  --text-color: #b5bac9;
+  --background: #1f1f1f;
+  --box-background: #1c1c21;
+  --post-color: #00b386;
+  --get-color: #1a73e8;
+  --delete-color: #e53935;
+
+  --post-soft: #25302b;
+  --get-soft: #1d2b3a;
+  --delete-soft: #2e1f1f;
+}
+
+body {
+  background-color: var(--background);
+}
+
+.swagger-ui {
+  background-color: var(--background);
+  color: var(--text-color);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.swagger-ui .topbar {
+  display: none;
+}
+
+.swagger-ui .info hgroup.main *,
+.swagger-ui .info hgroup.main span,
+.swagger-ui .info hgroup.main p,
+.swagger-ui .info hgroup.main h1,
+.swagger-ui .info hgroup.main h2,
+.swagger-ui .info hgroup.main h3 {
+  color: #ffffff !important;
+}
+
+/* Colores por método */
+.swagger-ui .opblock.opblock-post {
+  background-color: var(--post-soft) !important;
+}
+
+.swagger-ui .opblock.opblock-get {
+  background-color: var(--get-soft) !important;
+}
+
+.swagger-ui .opblock.opblock-delete {
+  background-color: var(--delete-soft) !important;
+}
+
+.swagger-ui .opblock.opblock-post .opblock-summary-method {
+  background-color: var(--post-color) !important;
+  color: #fff !important;
+}
+
+.swagger-ui .opblock.opblock-get .opblock-summary-method {
+  background-color: var(--get-color) !important;
+  color: #fff !important;
+}
+
+.swagger-ui .opblock.opblock-delete .opblock-summary-method {
+  background-color: var(--delete-color) !important;
+  color: #fff !important;
+}
+
+/* Colores generales */
+.swagger-ui .scheme-container,
+.swagger-ui .server-url,
+.swagger-ui .parameters-container,
+.swagger-ui .request-body,
+.swagger-ui .execute-wrapper,
+.swagger-ui .opblock-section-header {
+  background-color: var(--box-background) !important;
+  color: var(--text-color) !important;
+}
+
+.swagger-ui .opblock .parameters,
+.swagger-ui .opblock .responses-wrapper .responses-inner h4,
+.swagger-ui .opblock .response-col_description,
+.swagger-ui .opblock .response-col_status,
+.swagger-ui .opblock .tab,
+.swagger-ui .model-title,
+.swagger-ui .parameter__name,
+.swagger-ui .parameter__in,
+.swagger-ui .parameter__type,
+.swagger-ui .opblock-summary-path,
+.swagger-ui .parameter__example {
+  color: var(--text-color) !important;
+}
+
+/* Headers por método */
+.swagger-ui .opblock.opblock-post .responses-inner > div:first-of-type,
+.swagger-ui .opblock.opblock-post .opblock-section-header {
+  background-color: var(--post-soft) !important;
+}
+
+.swagger-ui .opblock.opblock-get .responses-inner > div:first-of-type,
+.swagger-ui .opblock.opblock-get .opblock-section-header {
+  background-color: var(--get-soft) !important;
+}
+
+.swagger-ui .opblock.opblock-delete .responses-inner > div:first-of-type,
+.swagger-ui .opblock.opblock-delete .opblock-section-header {
+  background-color: var(--delete-soft) !important;
+}
+
+/* Inputs */
+.swagger-ui input,
+.swagger-ui select,
+.swagger-ui textarea {
+  background-color: #1a1a1a;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+/* Botones */
+.swagger-ui .btn,
+.swagger-ui .btn:hover {
+  background-color: #1f1f1f;
+  color: #fff;
+  border-color: #444;
+}
+
+/* Tablas */
+.swagger-ui .responses-table td,
+.swagger-ui .responses-table th {
+  background-color: var(--box-background);
+  color: var(--text-color);
+}
+
+.swagger-ui .markdown code,
+.swagger-ui .model-box {
+  background-color: #111;
+  color: #f8f8f2;
+}
+
+/* Título principal de la documentación */
+.swagger-ui .info hgroup.main *,
+.swagger-ui .info hgroup.main span,
+.swagger-ui .info hgroup.main h1,
+.swagger-ui .info hgroup.main h2,
+.swagger-ui .info hgroup.main h3,
+.swagger-ui .info hgroup.main p {
+  color: #ffffff !important;
+}
+
+/* Títulos de las secciones de endpoints (ej. 'User') */
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock-tag-section h4,
+.swagger-ui .opblock-tag-section span {
+  color: #ffffff !important;
+}
+
+/* Descripciones de las rutas (ej. 'Registro de nuevo usuario') */
+.swagger-ui .opblock-summary-description {
+  color: #ffffff !important;
+}
+
+/* Descripción debajo de los tags */
+.swagger-ui .markdown p,
+.swagger-ui .markdown h4,
+.swagger-ui .markdown span {
+  color: #ffffff !important;
+}
+/* Texto de descripción debajo del título principal */
+.swagger-ui .info p {
+  color: #ffffff !important;
+}
+
+/* Descripción de la categoría de endpoints */
+.swagger-ui .opblock-tag small {
+  color: #ffffff !important;
+}
+
+/* Por si alguna categoría usa `span` u otro tag adicional */
+.swagger-ui .opblock-tag-section span,
+.swagger-ui .opblock-tag-description {
+  color: #ffffff !important;
+}
+
+/* Oculta descripción del endpoint en estado colapsado */
+.swagger-ui .opblock .opblock-summary-description {
+  display: none !important;
+}
+
+/* Muestra descripción solo cuando está expandido */
+.swagger-ui .opblock.is-open .opblock-summary-description {
+  display: block !important;
+  margin: 10px 0 0 0;
+  padding-left: 12px;
+  font-size: 14px;
+  color: #ccc !important;
+}

@@ -26,26 +26,34 @@ const swaggerSpec = require('./swagger');
 
 const app = express();
 
-// Configuración de CORS 
+// Servir archivos estáticos
+app.use(express.static('public'));
+
+// Configuración de CORS dinámica
 const allowedOrigins = [
   'https://gestor-dasc-frontend.vercel.app', // Producción
-  'http://localhost:5173' // Desarrollo local
+  'http://localhost:5173', // Desarrollo local (Vite)
+  'http://localhost:3000', // Desarrollo local
+  'https://gestor-dasc-backend.onrender.com' // Backend en Render
 ];
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('No autorizado por CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-};
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-// CORS middleware
-app.use(cors(corsOptions));
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // Responde correctamente a preflight
+  }
+
+  next();
+});
 
 // Seguridad general
 app.use(helmet());
@@ -75,6 +83,18 @@ app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 app.use('/api/user-roles', userRoleRoutes); // Rutas para roles de usuarios
 app.use('/api/audit', auditRoutes); // Rutas para auditoría de documentos
 app.use('/api/practiceProgress', practiceProgressRoutes);  // Rutas para progreso de prácticas profesionales
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'API Gestor DASC',
+  customfavIcon: '/dasc_icon2.png',
+  customCssUrl: '/swagger-theme.css',
+  swaggerOptions: {
+    authAction: {}, // Esto desactiva cualquier acción de auth
+  },
+  customCss: `
+    .swagger-ui .auth-wrapper { display: none !important; }
+  `
+}));
 
 // Manejo de errores
 app.use((req, res, next) => {
@@ -88,7 +108,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Swagger documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 module.exports = app;
