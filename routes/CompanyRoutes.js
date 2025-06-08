@@ -7,18 +7,57 @@ const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
 
-// ──────── Rutas públicas ────────
+/**
+ * @swagger
+ * tags:
+ *   name: Company
+ *   description: Endpoints para gestión de entidades receptoras
+ */
 
-// Registrar una nueva entidad receptora
+/**
+ * @swagger
+ * /api/companies/register:
+ *   post:
+ *     summary: Registrar una nueva entidad receptora
+ *     tags: [Company]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Entidad receptora registrada exitosamente
+ */
 router.post(
   '/register',
   profileUploadMiddleware,
   companyController.registerCompany
 );
 
-// ──────── Rutas protegidas ────────
-
-// Obtener todas las entidades receptoras
+/**
+ * @swagger
+ * /api/companies/all:
+ *   get:
+ *     summary: Obtener todas las entidades receptoras
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de entidades receptoras
+ */
 router.get(
   '/all',
   authMiddleware,
@@ -26,7 +65,18 @@ router.get(
   companyController.getAllCompanies
 );
 
-// Obtener entidades receptoras filtradas por estatus
+/**
+ * @swagger
+ * /api/companies:
+ *   get:
+ *     summary: Obtener entidades receptoras por estatus
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista filtrada por estatus
+ */
 router.get(
   '/',
   authMiddleware,
@@ -34,7 +84,18 @@ router.get(
   companyController.getCompaniesByStatus
 );
 
-// Obtener cantidad total de entidades receptoras
+/**
+ * @swagger
+ * /api/companies/count:
+ *   get:
+ *     summary: Obtener el total de entidades receptoras
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conteo total de entidades
+ */
 router.get(
   '/count',
   authMiddleware,
@@ -42,7 +103,18 @@ router.get(
   companyController.countCompaniesController
 );
 
-// Obtener perfil de la entidad receptora autenticada
+/**
+ * @swagger
+ * /api/companies/me:
+ *   get:
+ *     summary: Obtener el perfil de la entidad receptora autenticada
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Perfil de la empresa autenticada
+ */
 router.get(
   '/me',
   authMiddleware,
@@ -50,14 +122,59 @@ router.get(
   companyController.getCompanyProfile
 );
 
-// Obtener entidad receptora por ID
+/**
+ * @swagger
+ * /api/companies/{id}:
+ *   get:
+ *     summary: Obtener entidad receptora por ID
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Entidad receptora encontrada
+ */
 router.get(
   '/:id',
   authMiddleware,
   companyController.getCompanyByID
 );
 
-// Actualizar datos de la entidad receptora
+/**
+ * @swagger
+ * /api/companies/{userID}:
+ *   patch:
+ *     summary: Actualizar parcialmente los datos de una entidad receptora
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userID
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Entidad receptora actualizada
+ */
 router.patch(
   '/:userID',
   authMiddleware,
@@ -65,7 +182,34 @@ router.patch(
   companyController.patchCompanyController
 );
 
-// Cambiar estatus de la entidad receptora
+/**
+ * @swagger
+ * /api/companies/{userID}/status:
+ *   patch:
+ *     summary: Cambiar el estatus de una entidad receptora
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userID
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [Pendiente, Aceptado, Rechazado]
+ *     responses:
+ *       200:
+ *         description: Estatus actualizado
+ */
 router.patch(
   '/:userID/status',
   authMiddleware,
@@ -73,7 +217,24 @@ router.patch(
   companyController.updateStatus
 );
 
-// Eliminar entidad receptora por ID (eliminación lógica)
+/**
+ * @swagger
+ * /api/companies/{companyID}:
+ *   delete:
+ *     summary: Eliminar lógicamente una entidad receptora
+ *     tags: [Company]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyID
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Entidad eliminada
+ */
 router.delete(
   '/:companyID',
   authMiddleware,
