@@ -7,13 +7,37 @@ const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 const checkUserType = require('../middlewares/CheckUserType');
 
-// ──────── Rutas públicas ────────
+/**
+ * @swagger
+ * tags:
+ *   name: InternalAssessor
+ *   description: Endpoints para gestión de asesores internos
+ */
 
-// Obtener todos los asesores internos (visible para alumnos al registrarse)
+/**
+ * @swagger
+ * /api/internal-assessors:
+ *   get:
+ *     summary: Obtener todos los asesores internos (visible para alumnos)
+ *     tags: [InternalAssessor]
+ *     responses:
+ *       200:
+ *         description: Lista de asesores internos
+ */
 router.get('/', internalAssessorController.getAllInternalAssessors);
 
-// ──────── Rutas protegidas ────────
-
+/**
+ * @swagger
+ * /api/internal-assessors/me:
+ *   get:
+ *     summary: Obtener el perfil del asesor interno autenticado
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Perfil del asesor interno
+ */
 router.get(
   '/me',
   authMiddleware,
@@ -21,7 +45,18 @@ router.get(
   internalAssessorController.getInternalAssessorProfile
 );
 
-// Contar número total de asesores internos
+/**
+ * @swagger
+ * /api/internal-assessors/count:
+ *   get:
+ *     summary: Obtener el conteo total de asesores internos
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Total de asesores internos
+ */
 router.get(
   '/count',
   authMiddleware,
@@ -29,21 +64,93 @@ router.get(
   internalAssessorController.countInternalAssessors
 );
 
-// Obtener asesor interno por ID (para Admin, SuperAdmin o dueño del perfil)
+/**
+ * @swagger
+ * /api/internal-assessors/{id}:
+ *   get:
+ *     summary: Obtener asesor interno por ID
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Asesor interno encontrado
+ */
 router.get(
   '/:id',
   authMiddleware,
   internalAssessorController.getInternalAssessorByID
 );
 
-// Registrar un nuevo asesor interno
+/**
+ * @swagger
+ * /api/internal-assessors/register:
+ *   post:
+ *     summary: Registrar un nuevo asesor interno
+ *     tags: [InternalAssessor]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Asesor interno registrado exitosamente
+ */
 router.post(
   '/register',
   profileUploadMiddleware,
   internalAssessorController.registerInternalAssessorController
 );
 
-// Actualizar parcialmente los datos de un asesor interno
+/**
+ * @swagger
+ * /api/internal-assessors/{id}:
+ *   patch:
+ *     summary: Actualizar parcialmente los datos de un asesor interno
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Asesor actualizado
+ */
 router.patch(
   '/:id',
   authMiddleware,
@@ -51,7 +158,34 @@ router.patch(
   internalAssessorController.patchInternalAssessorController
 );
 
-// Cambiar el estatus del asesor (Aceptado, Rechazado, Pendiente)
+/**
+ * @swagger
+ * /api/internal-assessors/{userID}/status:
+ *   patch:
+ *     summary: Cambiar el estatus del asesor interno
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userID
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [Pendiente, Aceptado, Rechazado]
+ *     responses:
+ *       200:
+ *         description: Estatus actualizado
+ */
 router.patch(
   '/:userID/status',
   authMiddleware,
@@ -59,7 +193,24 @@ router.patch(
   internalAssessorController.updatestatus
 );
 
-// Eliminar lógicamente un asesor interno
+/**
+ * @swagger
+ * /api/internal-assessors/{id}:
+ *   delete:
+ *     summary: Eliminar lógicamente un asesor interno
+ *     tags: [InternalAssessor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Asesor eliminado
+ */
 router.delete(
   '/:id',
   authMiddleware,
