@@ -190,3 +190,37 @@ body {
   font-size: 14px;
   color: #ccc !important;
 }
+
+/* Color del texto de placeholder (cuando el input está vacío) */
+.swagger-ui input::placeholder,
+.swagger-ui textarea::placeholder {
+  color: #888 !important;
+  opacity: 1 !important; /* algunos navegadores lo reducen */
+}
+
+/* Para compatibilidad con navegadores antiguos */
+.swagger-ui input::-webkit-input-placeholder,
+.swagger-ui textarea::-webkit-input-placeholder {
+  color: #888 !important;
+}
+
+.swagger-ui input:-ms-input-placeholder,
+.swagger-ui textarea:-ms-input-placeholder {
+  color: #888 !important;
+}
+
+.swagger-ui input::-moz-placeholder,
+.swagger-ui textarea::-moz-placeholder {
+  color: #888 !important;
+}
+
+/* Forzar color del texto ingresado incluso con valor o en foco */
+.swagger-ui input,
+.swagger-ui input:focus,
+.swagger-ui input:not(:placeholder-shown),
+.swagger-ui textarea,
+.swagger-ui textarea:focus,
+.swagger-ui textarea:not(:placeholder-shown) {
+  color: #ffffff !important;
+  background-color: #1a1a1a !important;
+}

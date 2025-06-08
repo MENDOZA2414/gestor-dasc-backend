@@ -83,13 +83,14 @@ app.use('/api/documents', documentRoutes); // Rutas para carga de archivos
 app.use('/api/user-roles', userRoleRoutes); // Rutas para roles de usuarios
 app.use('/api/audit', auditRoutes); // Rutas para auditoría de documentos
 app.use('/api/practiceProgress', practiceProgressRoutes);  // Rutas para progreso de prácticas profesionales
+
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'API Gestor DASC',
   customfavIcon: '/dasc_icon2.png',
   customCssUrl: '/swagger-theme.css',
   swaggerOptions: {
-    authAction: {}, // Esto desactiva cualquier acción de auth
+    authAction: {}, 
   },
   customCss: `
     .swagger-ui .auth-wrapper { display: none !important; }
