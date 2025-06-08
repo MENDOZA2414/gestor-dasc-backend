@@ -8,7 +8,31 @@ const checkUserTypeOrRole = require('../middlewares/CheckUserTypeOrRole');
 const validateDocumentFlow = require('../middlewares/ValidateDocumentFlow');
 const validateDocumentApproval = require('../middlewares/ValidateDocumentApproval');
 
-// Obtener documentos por estudiante y estatus
+/**
+ * @swagger
+ * tags:
+ *   name: StudentDocumentation
+ *   description: Endpoints para manejo de documentos de estudiantes
+ */
+
+/**
+ * @swagger
+ * /api/student-documentation/student/{studentID}:
+ *   get:
+ *     summary: Obtener documentos de un estudiante por estatus
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: studentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de documentos filtrados por estatus
+ */
 router.get(
   '/student/:studentID',
   authMiddleware,
@@ -17,7 +41,26 @@ router.get(
   studentDocumentationController.getDocumentsByStudentAndStatus
 );
 
-// Obtener un documento por ID
+/**
+ * @swagger
+ * /api/student-documentation/document/{id}:
+ *   get:
+ *     summary: Obtener un documento por su ID
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Documento encontrado
+ *       404:
+ *         description: Documento no encontrado
+ */
 router.get(
   '/document/:id',
   authMiddleware,
@@ -26,7 +69,24 @@ router.get(
   studentDocumentationController.getDocumentByID
 );
 
-// Contar documentos aceptados de un estudiante
+/**
+ * @swagger
+ * /api/student-documentation/count-accepted/{studentID}:
+ *   get:
+ *     summary: Contar documentos aceptados de un estudiante
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: studentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Número de documentos aceptados
+ */
 router.get(
   '/count-accepted/:studentID',
   authMiddleware,
@@ -35,7 +95,29 @@ router.get(
   studentDocumentationController.countAcceptedDocuments
 );
 
-// Aprobar un documento
+/**
+ * @swagger
+ * /api/student-documentation/approve:
+ *   patch:
+ *     summary: Aprobar un documento (Admin, SuperAdmin o Asesor Interno)
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - documentID
+ *             properties:
+ *               documentID:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Documento aprobado correctamente
+ */
 router.patch(
   '/approve',
   authMiddleware,
@@ -44,7 +126,32 @@ router.patch(
   studentDocumentationController.approveDocument
 );
 
-// Rechazar un documento
+/**
+ * @swagger
+ * /api/student-documentation/reject:
+ *   post:
+ *     summary: Rechazar un documento
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - documentID
+ *               - reason
+ *             properties:
+ *               documentID:
+ *                 type: integer
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Documento rechazado correctamente
+ */
 router.post(
   '/reject',
   authMiddleware,
@@ -53,7 +160,24 @@ router.post(
   studentDocumentationController.rejectDocument
 );
 
-// Marcar un documento como en revisión
+/**
+ * @swagger
+ * /api/student-documentation/review/{documentID}:
+ *   patch:
+ *     summary: Marcar documento como "En Revisión"
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Documento marcado como en revisión
+ */
 router.patch(
   '/review/:documentID',
   authMiddleware,
@@ -62,7 +186,24 @@ router.patch(
   studentDocumentationController.markDocumentAsInReview
 );
 
-// Eliminar un documento (eliminación lógica + renombrar en FTP)
+/**
+ * @swagger
+ * /api/student-documentation/{documentID}:
+ *   delete:
+ *     summary: Eliminar lógicamente un documento (solo estudiante)
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Documento eliminado
+ */
 router.delete(
   '/:documentID',
   authMiddleware,
@@ -70,7 +211,37 @@ router.delete(
   studentDocumentationController.deleteDocument
 );
 
-// Editar metadatos de un documento (tipo, nombre, estado)
+/**
+ * @swagger
+ * /api/student-documentation/{documentID}:
+ *   patch:
+ *     summary: Editar metadatos de un documento (solo SuperAdmin)
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               documentType:
+ *                 type: string
+ *               fileName:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Documento actualizado
+ */
 router.patch(
   '/:documentID',
   authMiddleware,
