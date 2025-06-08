@@ -4,7 +4,40 @@ const pool = require('../config/db');
 const authMiddleware = require('../middlewares/AuthMiddleware');
 const checkRole = require('../middlewares/CheckRole');
 
-// Obtener todos los eventos de auditoría relacionados con documentos
+/**
+ * @swagger
+ * tags:
+ *   name: Audit
+ *   description: Registro de auditoría de acciones realizadas sobre documentos
+ */
+
+/**
+ * @swagger
+ * /api/audit:
+ *   get:
+ *     summary: Obtener eventos de auditoría relacionados con documentos
+ *     tags: [Audit]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: studentID
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Filtrar auditoría por ID del alumno
+ *       - in: query
+ *         name: documentID
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Filtrar auditoría por ID del documento
+ *     responses:
+ *       200:
+ *         description: Lista de eventos de auditoría encontrados
+ *       500:
+ *         description: Error al consultar la auditoría
+ */
 router.get('/', authMiddleware, checkRole(['Admin', 'SuperAdmin']), async (req, res) => {
   const { studentID, documentID } = req.query;
 
