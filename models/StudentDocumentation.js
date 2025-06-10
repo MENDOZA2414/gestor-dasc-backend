@@ -209,6 +209,18 @@ const patchDocument = async (documentID, updateData) => {
   return { message: 'Documento actualizado correctamente' };
 };
 
+// Obtener todos los documentos de un alumno (sin filtrar por status)
+const getAllDocumentsByStudentID = async (studentID) => {
+  const query = `
+    SELECT documentID, studentID, documentType, fileName, filePath, status
+    FROM StudentDocumentation
+    WHERE studentID = ? AND recordStatus = 'Activo'
+  `;
+  const [rows] = await pool.query(query, [studentID]);
+  return rows;
+};
+
+
 module.exports = {
   saveDocument,
   getDocumentsByStudentAndStatus,
@@ -218,5 +230,6 @@ module.exports = {
   rejectDocument,
   markAsInReview,
   deleteDocument,
-  patchDocument
+  patchDocument,
+  getAllDocumentsByStudentID
 };

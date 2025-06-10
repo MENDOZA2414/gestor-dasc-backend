@@ -249,4 +249,54 @@ router.patch(
   studentDocumentationController.patchDocument
 );
 
+/**
+ * @swagger
+ * /api/student-documentation/by-student/{studentID}:
+ *   get:
+ *     summary: Obtener todos los documentos de un alumno por studentID
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: studentID
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Documentos obtenidos correctamente
+ */
+router.get(
+  '/by-student/:studentID',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentDocumentationController.getAllDocumentsByStudentID
+);
+
+/**
+ * @swagger
+ * /api/student-documentation/by-control/{controlNumber}:
+ *   get:
+ *     summary: Obtener todos los documentos de un alumno por número de control
+ *     tags: [StudentDocumentation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: controlNumber
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Documentos obtenidos correctamente
+ */
+router.get(
+  '/by-control/:controlNumber',
+  authMiddleware,
+  checkRole(['Admin', 'SuperAdmin']),
+  studentDocumentationController.getAllDocumentsByControlNumber
+);
+
 module.exports = router;

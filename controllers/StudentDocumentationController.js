@@ -2,7 +2,7 @@ const pool = require('../config/db');
 const StudentDocumentation = require('../models/StudentDocumentation');
 const { updateProgressStep } = require('../services/ProfessionalPracticeService');
 const logAudit = require('../utils/logAudit');
-
+const Student = require('../models/Student');
 // Obtener documentos por estudiante y estatus
 exports.getDocumentsByStudentAndStatus = async (req, res) => {
   try {
@@ -401,5 +401,28 @@ exports.patchDocument = async (req, res) => {
 
   } catch (err) {
     res.status(500).send({ message: 'Error al actualizar documento', error: err.message });
+  }
+};
+
+exports.getAllDocumentsByStudentID = async (req, res) => {
+  try {
+    const { studentID } = req.params;
+    const docs = await StudentDocumentation.getAllDocumentsByStudentID(studentID);
+    res.status(200).json(docs);
+  } catch (err) {
+    console.error('Error al obtener documentos por studentID:', err.message);
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+};
+
+exports.getAllDocumentsByControlNumber = async (req, res) => {
+  try {
+    const { controlNumber } = req.params;
+    const student = await Student.getStudentByControlNumber(controlNumber);
+    const docs = await StudentDocumentation.getAllDocumentsByStudentID(student.studentID);
+    res.status(200).json(docs);
+  } catch (err) {
+    console.error('Error al obtener documentos por controlNumber:', err.message);
+    res.status(500).json({ message: 'Error del servidor' });
   }
 };
