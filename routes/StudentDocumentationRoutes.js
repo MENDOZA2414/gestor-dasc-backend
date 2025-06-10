@@ -207,7 +207,6 @@ router.patch(
 router.delete(
   '/:documentID',
   authMiddleware,
-  checkUserType(['student']),
   studentDocumentationController.deleteDocument
 );
 
