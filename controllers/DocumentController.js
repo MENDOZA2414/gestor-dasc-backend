@@ -55,33 +55,54 @@ const streamDocumentByPath = async (req, res) => {
 const uploadStudentDocument = async (req, res) => {
   const client = new ftp.Client();
   try {
+    // Log para depuración
+    console.log('req.user:', req.user);
+
     const userID = req.user.id;
-    const userTypeID = req.user.userTypeID;
+    // Acepta variantes de nombre de campo por si el JWT tiene otro nombre
+    const userTypeID = req.user.userTypeID || req.user.type || req.user.role;
 
     let documentType = req.body.documentType || req.body.tipoDocumento;
     if (typeof documentType === 'string') {
       documentType = documentType.trim();
     }
 
-    if (userTypeID !== 2) {
-      return res.status(403).json({ message: 'Solo los estudiantes pueden subir documentos' });
+    // Nuevo: obtener studentID según el tipo de usuario
+    let studentID, controlNumber;
+
+    if (userTypeID === 2) {
+      // Alumno: obtiene su propio studentID
+      const [[studentRow]] = await pool.query(
+        'SELECT studentID, controlNumber FROM Student WHERE userID = ? AND recordStatus = "Activo"',
+        [userID]
+      );
+      if (!studentRow) {
+        return res.status(404).json({ message: 'Estudiante no encontrado' });
+      }
+      studentID = studentRow.studentID;
+      controlNumber = studentRow.controlNumber;
+    } else if (userTypeID === 1 || userTypeID === 3 || userTypeID === 99) {
+      // Admin, Super Admin o AdminOnly: debe enviar studentID en el body
+      studentID = req.body.studentID;
+      if (!studentID) {
+        return res.status(400).json({ message: 'Falta el parámetro studentID para admin/super admin' });
+      }
+      // Opcional: obtener controlNumber si lo necesitas
+      const [[studentRow]] = await pool.query(
+        'SELECT controlNumber FROM Student WHERE studentID = ? AND recordStatus = "Activo"',
+        [studentID]
+      );
+      if (!studentRow) {
+        return res.status(404).json({ message: 'Estudiante no encontrado' });
+      }
+      controlNumber = studentRow.controlNumber;
+    } else {
+      return res.status(403).json({ message: 'No tienes permisos para subir documentos', userTypeID });
     }
 
     if (!req.file || !documentType) {
       return res.status(400).json({ message: 'Faltan el archivo o el tipo de documento' });
     }
-
-    // Obtener studentID real
-    const [[studentRow]] = await pool.query(
-      'SELECT studentID, controlNumber FROM Student WHERE userID = ? AND recordStatus = "Activo"',
-      [userID]
-    );
-    if (!studentRow) {
-      return res.status(404).json({ message: 'Estudiante no encontrado' });
-    }
-
-    const studentID = studentRow.studentID;
-    const controlNumber = studentRow.controlNumber;
 
     // Sanitizar SOLO para nombre del archivo
     const sanitizeForFile = (s) =>
