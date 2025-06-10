@@ -351,11 +351,6 @@ exports.deleteDocument = async (req, res) => {
       return res.status(404).json({ message: 'Documento no encontrado' });
     }
 
-    // Verificar propiedad del documento
-    if (document.studentID !== requesterID) {
-      return res.status(403).json({ message: 'No puedes eliminar un documento que no te pertenece.' });
-    }
-
     // Verificar estado del documento
     if (document.status !== 'Pendiente' && document.status !== 'Rechazado') {
       return res.status(400).json({
