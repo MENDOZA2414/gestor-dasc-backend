@@ -344,11 +344,6 @@ exports.deleteDocument = async (req, res) => {
       return res.status(400).json({ message: 'Falta el documentID en la URL' });
     }
 
-    // Solo estudiantes pueden eliminar documentos
-    if (userTypeID !== 2) {
-      return res.status(403).json({ message: 'Solo los estudiantes pueden eliminar documentos.' });
-    }
-
     // Obtener información actual del documento
     const document = await StudentDocumentation.getDocumentByID(documentID);
 
